@@ -1,0 +1,9 @@
+*-Ex.R
+.Rhistory
+.RData
+.Rproj.user
+*.csv
+*.xls
+*.xlsm
+*.xml
+*.html
