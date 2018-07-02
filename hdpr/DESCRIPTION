@@ -1,7 +1,7 @@
 Package: hdpr
 Type: Package
 Title: Hierarchical Decision Process (HDP) Implemented in R 
-Version: 0.1.0
+Version: 0.0.1
 Author: Christopher Davis (cwhd)
 Maintainer: Christopher Davis <techchrisdavis@outlook.com>
 Description: More about what it does (maybe more than one line)
@@ -11,3 +11,4 @@ Imports:
   rjson
 Encoding: UTF-8
 LazyData: true
+RoxygenNote: 6.0.1
