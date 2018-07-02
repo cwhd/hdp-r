@@ -2,6 +2,8 @@
 
 This is being build out as a project for the [ETM department](https://www.pdx.edu/engineering-technology-management/) of [Portland State University (PSU)](https://www.pdx.edu/).
 
+The original plan is up in [OneDrive](https://1drv.ms/w/s!AuSk0mi8WN0UgRMD_wWLMWE8LFDW), but I'll end up replacing that with this documentation by the end of the summer. 
+
 This application will allow a user to:
 
 -	Define an HDM model using R through the command line and a Shiny interface
@@ -10,6 +12,23 @@ This application will allow a user to:
 Shiny interface
 
 Go [here](https://en.wikipedia.org/wiki/Hierarchical_decision_process) to read more about HDP.
+
+## Usage
+
+Documentation is generated with [roxygen](https://cran.r-project.org/web/packages/roxygen2/vignettes/roxygen2.html) so you can ask R for help.  Also check out the examples folder for some working examples.
+
+This section will be updated as more functionalty becomes usable.  
+
+### Import and export models in JSON
+
+HDP models can be defined in JSON (see definition documentation below). If you have a defined model import it. Once if you have a model that you're working with in R you can also export it. Here is an example:
+
+```R
+jsonFile = "C:/Users/chrdavi/source/repos/hdp-r/hdp-r-project/examples/testFiles/exampleModel.json"
+
+hdpMod <- hdpr::hdp.model.import(jsonFile)
+hdpr::hdp.model.export(hdpMod, "exportedExample")
+```
 
 ## Model Definition
 
@@ -42,6 +61,11 @@ The model should have a title and optionally can have a description. The levels 
 
 Note that the structure does not constrain the number of levels or nodes within each level.  However practically you likely want to limit the number of levels, as it will be hard to find experts that will spend the time evaluating your nodes if you put in to many.
 
+## Qualtrics Integration
+
+[Qualtrics](https://www.qualtrics.com/) is a great tool for managing surveys and is already used at many institutions and companies. Why would you build out a survey manager when one so awesome already exists? This project will export a defined HDP model to qualtrics and create a survey. You can then manage responses and experts there and import the results back into this tool.
+
+There is already a [CRAN package the connects to Qualtrics](https://cran.r-project.org/web/packages/qualtRics/index.html) and qualtrics has a pretty extensive [API](https://api.qualtrics.com/).
 
 ## Previous work
 
