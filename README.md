@@ -67,6 +67,19 @@ Note that the structure does not constrain the number of levels or nodes within 
 
 There is already a [CRAN package the connects to Qualtrics](https://cran.r-project.org/web/packages/qualtRics/index.html) and qualtrics has a pretty extensive [API](https://api.qualtrics.com/).
 
+### API Keys
+
+You can use the QUaltrics API, but you need a key. Luckilly getting a key is easy, here's how to do it:
+
+- Log into Qualtrics
+- Click on the profile icon at the top right and go to "Account Settings..."
+
+![Account settings](images/account-settings.png "Account settings menu")
+
+- Your API token will be in a box on the account setting page, it should look like this:
+
+![API box](images/api-box.png "API box")
+
 ## Previous work
 
 There is [a tool](http://research1.etm.pdx.edu/hdm2/) used for HDP/HDM at PSU currently, however it's old and clunky, doesn't scale, and the code has been lost in time. This project borrows some of the interface structure from that project.

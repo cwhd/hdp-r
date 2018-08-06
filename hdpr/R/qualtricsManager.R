@@ -10,6 +10,11 @@
 hdp.qualtrics.createSurvey <- function(jsonFile) {
   print("creating survey...")
   #use this API to create a new survey
+  #https://api.qualtrics.com/docs/import-survey-1
+  #Create a survey based on the model
+  # - bitwise compare 
+  # TODO need to pass the aPI key in as a param...
+  # API Key: 5NcMTFwikrMy7GoTu1y8rjaHoCZY8Ghx7ygqgTX2
 }
 
 #' Get data from a qualtrics survey for your HDP model

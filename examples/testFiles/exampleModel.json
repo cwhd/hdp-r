@@ -1,5 +1,15 @@
 {
 	"title": "model title",
+	"experts" : [
+	  {
+	    "name" : "chris davis",
+	    "id" : 1
+	  },
+	  {
+	    "name": "john smith",
+	    "id": 2
+	  }
+	],
 	"levels": [{
 			"level": 1,
 			"title": "level 1 title: Mission",
@@ -14,19 +24,80 @@
 			"description": "level 2 description",
 			"nodes": [{
 					"name": "Cost",
-					"description": "how much stuff costs"
+					"description": "how much stuff costs",
+					"calculatedWeight":"5",
+					"expertWeights" : [
+					  {
+					    "expertName": "Chris Davis",
+					    "expertId" : 1,
+					    "weight" : 20
+					  },
+					  {
+					    "expertName" : "john smith",
+					    "expertId" : 2,
+					    "weight": 15
+					  }
+					]
 				},
 				{
-					"name": "Effectiveness"
+					"name": "Effectiveness",
+					"expertWeights" : [
+					  {
+					    "expertName": "Chris Davis",
+					    "expertId" : 1,
+					    "weight" : 20
+					  },
+					  {
+					    "expertName" : "john smith",
+					    "expertId" : 2,
+					    "weight": 25
+					  }
+					]
 				},
 				{
-					"name": "Synergy"
+					"name": "Synergy",
+					"expertWeights" : [
+					  {
+					    "expertName": "Chris Davis",
+					    "expertId" : 1,
+					    "weight" : 0
+					  },
+					  {
+					    "expertName" : "john smith",
+					    "expertId" : 2,
+					    "weight": 30
+					  }
+					]
 				},
 				{
-					"name": "Availability"
+					"name": "Availability",
+					"expertWeights" : [
+					  {
+					    "expertName": "Chris Davis",
+					    "expertId" : 1,
+					    "weight" : 40
+					  },
+					  {
+					    "expertName" : "john smith",
+					    "expertId" : 2,
+					    "weight": 15
+					  }
+					]
 				},
 				{
-					"name": "Compatibility"
+					"name": "Compatibility",
+					"expertWeights" : [
+					  {
+					    "expertName": "Chris Davis",
+					    "expertId" : 1,
+					    "weight" : 20
+					  },
+					  {
+					    "expertName" : "john smith",
+					    "expertId" : 2,
+					    "weight": 30
+					  }
+					]
 				}
 			]
 		},

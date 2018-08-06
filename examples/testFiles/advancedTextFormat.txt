@@ -1,0 +1,104 @@
+[[AdvancedFormat]]
+
+[[ED:State]]
+[[ED:Gender]]
+[[ED:SawSurvey:1]]
+
+[[Block:MC Block]]
+
+[[Question:MC:Dropdown]]
+drop down
+[[Choices]]
+a
+b
+c
+
+[[Question:MC:Select]]
+select
+[[Choices]]
+a
+b
+c
+
+[[Question:MC:MultiSelect]]
+multiselect
+[[Choices]]
+a
+b
+c
+
+[[Question:MC:SingleAnswer:Horizontal]]
+single answer horizontal
+[[Choices]]
+a
+b
+c
+
+[[Question:MC:MultipleAnswer:Horizontal]]
+multiple answer horizontal
+[[Choices]]
+a
+b
+c
+
+[[Block]]
+
+[[Question:MC]]
+[[ID:q1]]
+This is a multiple choice question. With one value recoded.
+
+[[AdvancedChoices]]
+[[Choice]]
+a choice
+with text on
+multiple lines
+[[Choice]]
+b
+[[Choice]]
+c
+[[Choice:99]]
+N/A with recode 99
+
+[[PageBreak]]
+
+[[Question:Matrix]]
+This question is a matrix question.
+
+It has lots of question text on multiple lines and uses
+advanced answers.
+
+[[Choices]]
+statement a
+statement b
+statement c
+[[AdvancedAnswers]]
+[[Answer]]
+answer 1
+[[Answer]]
+answer 2
+[[Answer]]
+answer 3
+
+[[PageBreak]]
+
+[[Question:Matrix]]
+This question is a matrix question and uses advanced choices and 
+answers with recode values.
+
+[[AdvancedChoices]]
+[[Choice]]
+a
+[[Choice]]
+b
+[[Choice]]
+c
+[[Choice]]
+d
+
+[[AdvancedAnswers]]
+[[Answer:10]]
+answer 1 - recode 10
+[[Answer:20]]
+answer 2 - recode 20
+[[Answer:30]]
+answer 3 - recode 30
