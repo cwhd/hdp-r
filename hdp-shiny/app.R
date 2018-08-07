@@ -63,8 +63,10 @@ ui <- fluidPage(
           tabPanel("Evaluation Form",
                    h4("Evaluate your Faschnizzle below"),
                    fluidRow(column(7,
-                                   h3('Evaluate'),
-                                   uiOutput("uiEvaluation")
+                                   h3('Evaluate Criteria'),
+                                   uiOutput("uiEvaluateCriteria"),
+                                   h3("Evaluate Features"),
+                                   uiOutput("uiEvaluateFeatures")
                       )) # END fluidRow
               )
         )
@@ -137,7 +139,7 @@ server <- function(input, output) {
   })
   
   observeEvent(input$btnExpertEvaluation, {
-    #uiEvaluation needs to get updated with sliders for each comparison
+    #uiEvaluateCriteria needs to get updated with sliders for each comparison
     #TODO turn the combos into slider controls
     expand.grid.unique <- function(x, y, include.equals=FALSE)
     {
@@ -163,8 +165,27 @@ server <- function(input, output) {
     # - how likely people will be to take the evaluation
     output$tblCriteriaCombinations <- renderTable(criteriaCombos)
     output$tblFeatureCombinations <- renderTable(featureCombos)
-    # add stuff to uiEvaluation
-    output$uiEvaluation <- renderUI({
+    # add stuff to uiEvaluateCriteria
+    
+    output$uiEvaluateFeatures <- renderUI({
+      moreSliders <- lapply(1:nrow(featureCombos), function(i) {
+        fluidRow(
+          column(1, 
+                 span(featureCombos[i,1])
+          ),
+          column(5,
+                 sliderInput(paste0("sliderf_",i),"",value = 50, min = 0, max = 100)
+          ), 
+          column(1,
+                 span(featureCombos[i,2])
+          )
+        )
+      })
+      do.call(shiny::tagList,moreSliders)
+    })  
+    
+    
+    output$uiEvaluateCriteria <- renderUI({
       sliders <- lapply(1:nrow(criteriaCombos), function(i) {
         fluidRow(
           column(1, 
@@ -180,12 +201,8 @@ server <- function(input, output) {
       })
       do.call(shiny::tagList,sliders)
       
-      #moreSliders <- lapply(1:nrow(featureCombos), function(i) {
-      #  sliderInput(paste0("sliderf_",i),featureCombos[i][1],value = 50, min = 0, max = 100)
-      #})
-      #do.call(shiny::tagList,featureCombos)
+      
     })
-    
   })
   
   observeEvent(input$btnSaveModel, {
