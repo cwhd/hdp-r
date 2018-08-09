@@ -31,6 +31,7 @@ df6 <- data.frame("C" = c(80), "D" = c(20))
 #TODO loop through dataframe list, create matrix like this, df1 would be the element of the loop:
 dynaMatrix[as.character(colnames(df1)[2]),as.character(colnames(df1)[1])] <- as.double(df1[1][1])
 dynaMatrix[as.character(colnames(df1)[1]),as.character(colnames(df1)[2])] <- as.double(df1[2][1])
+
 #the stuff above would create "A" then code below can go away
 A <- structure(c(NA,df1$B[1],df2$C[1],df3$D[1],
                         df1$A[1],NA,df4$C[1],df5$D[1],
