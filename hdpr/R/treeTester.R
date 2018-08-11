@@ -68,4 +68,41 @@ levelThreeCombos <- expand.grid.unique(dfLevel3$name, dfLevel3$name)
 #- then I can take the values of the comparisons and use them in the hdpCalcTest file
 #- save them using this example: https://daattali.com/shiny/persistent-data-storage/
 
+#testing getting node names...
+toString(acme$name)
+toString(acme$children)
+
+for(chit in acme$children) {
+  print(chit$name)
+}
+
+#apply(acme$children, 1, name)
+nameList <- lapply(1:length(acme$children), function(i){
+  toString(acme$children[[i]]$name)
+})
+toString(nameList)
+
+toString(
+  lapply(1:length(acme$children), function(i){
+    toString(acme$children[[i]]$name)
+  })
+)
+
+toString(FindNode(node=acme,name = "Accounting")$children)
+
+length(FindNode(node=acme,name = "Accounting")$children)
+
+acme$Accounting$children[[1]]$name
+acme$Accounting$parent
+#testFrame1 <- as.data.frame(acme, "level","name","parent") #don't use this
+testFrame2 <- ToDataFrameTree(acme, "pathString", "level","name")
+#testFrame3 <- ToDataFrameTable(acme, "pathString", "level","name") # don't use this
+testFrame3 <- ToDataFrameNetwork(acme, "level","name")
+
+testAcme2 <- as.Node(testFrame2)
+print(testAcme2)
+plot(testAcme2)
+
+
+
 
