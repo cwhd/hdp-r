@@ -15,6 +15,8 @@ library(shiny)
 library(data.tree)
 library(DiagrammeR)
 library(mongolite)
+library(rjson)
+library(DT)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -26,6 +28,7 @@ ui <- fluidPage(
    sidebarLayout(
       sidebarPanel(
         wellPanel(
+          textInput("txtModelName","Model Name",placeholder = "The name of your model"),
           h4("Criteria"),
           textInput("txtDecison","Decision", placeholder = "Whatever you're trying to decide"),
           textInput("txtCriteria","Criteria", placeholder = "i.e.) criteria1,2, etc")
@@ -59,8 +62,9 @@ ui <- fluidPage(
           tabPanel("Model Results",
                    h4("Results wil be here..."),
                    tableOutput("tblCriteriaCombinations"),
-                   tableOutput("tblFeatureCombinations")
-                   ),
+                   tableOutput("tblFeatureCombinations"),
+                   tableOutput("tblWtf")
+          ),
           tabPanel("Evaluation Form",
                    h4("Evaluate your Faschnizzle below"),
                    textInput("txtExpertName","Your Name:"),
@@ -73,7 +77,14 @@ ui <- fluidPage(
                                    uiOutput("uiEvaluateAlternatives")
                       )),
                    actionButton("btnSaveOpinion", "Save Your Stuff")
-              )
+              ),
+          tabPanel("Previous Models",
+                   actionButton("btnLoadModels", "Load all models"),
+                   h4("List of all previous models"),
+                   uiOutput("uiDynaModels"),
+                   verbatimTextOutput("modelSelectInfo"),
+                   dataTableOutput(outputId = "dtMongoOutput")
+                   )
         )
       )
    )
@@ -92,12 +103,16 @@ server <- function(input, output, session) {
   
   #TODO need to also pre-set the alternatives up here...
 
-  hdp=reactiveValues(tree=NULL,criteria=NULL,factors=NULL,criteriaCombos=NULL,featureCombos=NULL,alternatives="Eggs, Waffles, Oatmeal",alternativeCombos=NULL)
+  hdp=reactiveValues(tree=NULL,criteria=NULL,factors=NULL,criteriaCombos=NULL,featureCombos=NULL,alternatives="Eggs, Waffles, Oatmeal",alternativeCombos=NULL,expertName=NULL,loadedModels=NULL)
   hdp$tree <- tree
   
   #################################################
   # Design the model
   #################################################
+  
+  observe(
+    hdp$expertName <= input$txtExpertName
+  )
   
   ui.tree.rebuild <- function () {
     print("rebuilding tree...")
@@ -121,6 +136,7 @@ server <- function(input, output, session) {
     }
   }
   
+  #TODO need to figure out why this is putting commas in the blank field??
   ui.factors.update <- function() {
     print("updating factors...")
     output$uiDynaFactors <- renderUI({
@@ -130,7 +146,11 @@ server <- function(input, output, session) {
                   value = 
                     toString(
                       lapply(1:length(FindNode(node=hdp$tree,name = hdp$tree$children[[i]]$name)$children), function(j){
-                        toString(FindNode(node=hdp$tree,name = hdp$tree$children[[i]]$name)$children[[j]]$name)
+                        if(!is.null(FindNode(node=hdp$tree,name = hdp$tree$children[[i]]$name)$children[[j]]$name)) {
+                          toString(FindNode(node=hdp$tree,name = hdp$tree$children[[i]]$name)$children[[j]]$name)
+                        } else {
+                          toString(paste0("Factor",j))
+                        }
                       })
                     )
         )
@@ -138,10 +158,6 @@ server <- function(input, output, session) {
     })
   }
   
-  ui.tree.draw <- function() {
-    
-  }
-
   #update values from Decision and Criteria
   observe({
     print("observe and update decsion and criteria")
@@ -159,7 +175,6 @@ server <- function(input, output, session) {
     print("btn to update factors")
     ui.tree.rebuild()
     ui.factors.update()
-    #ui.evaluation.update()
     ui.evaluation.update.correct()
   })
   
@@ -178,7 +193,71 @@ server <- function(input, output, session) {
   
   #once model is designed, save it to the DB
   observeEvent(input$btnSaveModel, {
-    saveData(ToDataFrameTree(hdp$tree, "pathString"))
+    #TODO need to add the alternatives
+    #TODO maybe the best thing is to read the URL and generate the UI that way...
+    # I think RJSON might be the best package to use: https://cran.r-project.org/web/packages/rjson/rjson.pdf
+    dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString")
+    
+    fullJson <- paste0('{ "modelName" : "',input$txtModelName,'","model":',toJSON(dfTreeAsNetwork),'}')
+    print(fullJson)
+
+    saveData(fullJson)
+  })
+  
+  output$modelSelectInfo = renderPrint({
+    s = input$dtMongoOutput_rows_selected
+    if (length(s)) {
+      cat('These rows were selected:\n\n')
+      cat(s, sep = ', ')
+    }
+  })
+  
+  observe({
+    s = input$dtMongoOutput_rows_selected
+    if (length(s)) {
+      #TODO then do the opposite of this to load everything:
+      #dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString")
+      #fullJson <- paste0('{ "modelName" : "',input$txtModelName,'","model":',toJSON(dfTreeAsNetwork),'}')
+      #print(fullJson)
+      print(s) #the index of the row...
+      selectedObjectId <- hdp$loadedModels[[s,"_id"]]
+      print(selectedObjectId)
+      mod <- loadModel(selectedObjectId)
+      print("ModelName and structure??")
+      #print(mod$modelName)
+      #str(mod$modelName)
+      print("Model Structure")
+      #print(str(mod$model))
+      print(mod$model[[1,5]])
+      
+      #output$tblWtf <- renderTable(mod$model)
+      #newModel <- do.call(rbind,mod$model)
+      #print("-----New Model")
+
+      #output$tblFeatureCombinations <- renderTable(newModel)
+      #print(newModel)
+      #newModel <- as.data.frame(newModel)
+      #hdp$tree <- as.Node(newModel[,c("pathString")], mode = "network", 
+      #                    pathName = "pathString", 
+      #                    pathDelimiter = "/")
+    }
+  })
+  
+  #TODO this would be great to have "load my models" - input email and get them
+  #TODO - maybe enter a user pin -not super secure...?
+  observeEvent(input$btnLoadModels, {
+    print("Loading Models")
+    #uiDynaModels
+    modelData <- loadAllModels()
+    #dtMongoOutput
+    print(modelData)
+    hdp$loadedModels <- modelData
+    output$dtMongoOutput <- renderDataTable({
+      
+      datatable(modelData, list(mode = "single", target = "cell"))
+      
+    }, escape = FALSE
+    )
   })
   
   #TODO duplicate code, need to clean this up...
@@ -198,6 +277,7 @@ server <- function(input, output, session) {
     
     #Get the criteria first
     dfCriteria <- dfLevels[dfLevels$level == 2,c("from","to","level","name")]
+    print(paste0("dfCrits:",dfCriteria))
     criteriaCombos <- expand.grid.unique(dfCriteria$name, dfCriteria$name)
     hdp$criteriaCombos <- criteriaCombos
     #TODO this should be the symetrical matrix
@@ -236,7 +316,6 @@ server <- function(input, output, session) {
     
     ################################################
     # build the sliders for each feature group
-    print("-----feature time----")
     dfFeatures <- dfLevels[dfLevels$level == 3,c("from","to","level","name")]
     print("----FEATURES")
     print(dfFeatures)
@@ -271,17 +350,19 @@ server <- function(input, output, session) {
       cNode <- dfCriteria[[h,"to"]]
       dfCriteriaFeatures <- dfFeatures[which(dfFeatures$from == cNode),"name"]
       featureCombos <- expand.grid.unique(dfCriteriaFeatures, dfCriteriaFeatures)
-      
-      lapply(1:nrow(featureCombos), function(g) {
-        observeEvent(input[[paste0("sliderf_",g,h)]], {
-          output[[paste0("uiOutputValueFA_",g,h)]] <- renderUI({
-            span(input[[paste0("sliderf_",g,h)]])
+      print(paste0("fcombos:",featureCombos))
+      if(length(featureCombos) > 0) {
+        lapply(1:nrow(featureCombos), function(g) {
+          observeEvent(input[[paste0("sliderf_",g,h)]], {
+            output[[paste0("uiOutputValueFA_",g,h)]] <- renderUI({
+              span(input[[paste0("sliderf_",g,h)]])
+            })
+            output[[paste0("uiOutputValueFB_",g,h)]] <- renderUI({
+              span(100 - input[[paste0("sliderf_",g,h)]])
+            })
           })
-           output[[paste0("uiOutputValueFB_",g,h)]] <- renderUI({
-           span(100 - input[[paste0("sliderf_",g,h)]])
-          })
-        })
-      })
+        })        
+      }
     })
 
     ################################################
@@ -472,6 +553,10 @@ server <- function(input, output, session) {
   })
   
   #################################################
+  # end Build out UI for expert evaluation
+  #################################################
+  
+  #################################################
   # Utilities
   #################################################
   # returns string w/o leading or trailing whitespace
@@ -490,6 +575,10 @@ server <- function(input, output, session) {
     do.call(rbind, lapply(seq_along(x), g))
   }
   
+  #################################################
+  # end Utilities
+  #################################################
+
   #################################################
   # -> mongo stuff
   #################################################
@@ -511,11 +600,13 @@ server <- function(input, output, session) {
                   options()$mongodb$host,
                   databaseName))
     # Insert the data into the mongo collection as a data.frame
-    data <- as.data.frame(t(data))
+    #data <- as.data.frame(t(data))
+    #print("Saving data structure...")
+    #str(data)
     db$insert(data)
   }
   
-  loadData <- function() {
+  loadModel <- function(modelId) {
     # Connect to the database
     db <- mongo(collection = collectionName,
                 url = sprintf(
@@ -524,10 +615,28 @@ server <- function(input, output, session) {
                   options()$mongodb$password,
                   options()$mongodb$host,
                   databaseName))
-    # Read all the entries
-    data <- db$find()
+    # get by Object Id: https://jeroen.github.io/mongolite/query-data.html#select-by-id
+    data <- db$find(query = paste0('{"_id" : {"$oid":"',modelId,'"}}'))
     data
   }
+  
+  #load up all the models ids and names for the list
+  loadAllModels <- function() {
+    db <- mongo(collection = collectionName,
+                url = sprintf(
+                  "mongodb://%s:%s@%s/%s",
+                  options()$mongodb$username,
+                  options()$mongodb$password,
+                  options()$mongodb$host,
+                  databaseName))
+    # Read all the entries
+    data <- db$find(
+      query = "{}",
+      fields = '{ "modelName" : true }'
+    )
+    data
+  }
+  
   #################################################
   # END mongo stuff
   #################################################
