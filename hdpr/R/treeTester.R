@@ -56,6 +56,8 @@ dfLevel1 <- dfLevels[dfLevels$level == 1,c("level","name")]
 dfLevel2 <- dfLevels[dfLevels$level == 2,c("level","name")]
 dfLevel3 <- dfLevels[dfLevels$level == 3,c("level","name")]
 
+print(dfLevel3[[1,"name"]])
+
 #- unique combinations for each level of the tree
 levelTwoCombos <- expand.grid.unique(dfLevel2$name, dfLevel2$name)
 levelThreeCombos <- expand.grid.unique(dfLevel3$name, dfLevel3$name)
@@ -103,6 +105,6 @@ testAcme2 <- as.Node(testFrame2)
 print(testAcme2)
 plot(testAcme2)
 
-
+levelThree <- Prune(acme,pruneFun = function(x) x$level == 3)
 
 

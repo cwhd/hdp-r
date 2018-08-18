@@ -1,22 +1,13 @@
-# HDP-3
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-
-#click on Decision: evaluate criteria against each other
-#click on each criteria: evaluate the underlying features
-#click on features: evaluatae the alternatives against each other
+# HDP-R
+# A shiny based interface to collect data for HDP models
 
 library(shiny)
-library(data.tree)
-library(DiagrammeR)
-library(mongolite)
-library(rjson)
-library(DT)
+library(data.tree)  #for managing the hierarchy
+library(DiagrammeR) #display the tree
+library(mongolite)  #use Mongo for storage 
+library(rjson)      #gives us more flexibility for storing and loading models
+library(DT)         #interface for selecting models from the DB
+library(xtable)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -24,7 +15,6 @@ ui <- fluidPage(
    # Application title
    titlePanel("HDP Builder"),
    
-   # Sidebar with a slider input for number of bins 
    sidebarLayout(
       sidebarPanel(
         wellPanel(
@@ -35,8 +25,8 @@ ui <- fluidPage(
         ),
         wellPanel(
           h4("Factors"),
-          uiOutput("uiDynaFactors")
-          #actionButton("btnUpdateTree", "Update Tree")
+          uiOutput("uiDynaFactors"),
+          actionButton("btnAddFactorLevel", "Add Level")
         ),
         wellPanel(
           h4("Alternatives"),
@@ -56,27 +46,43 @@ ui <- fluidPage(
                    grVizOutput("xx"),
                    wellPanel(
                      h3("Alternatives"),
-                     uiOutput("uiDynaAlternatives")
+                     uiOutput("uiDynaAlternatives"),
+                     h3("More stuff"),
+                     uiOutput("uiDynaLevels")
                    )
           ),
           tabPanel("Model Results",
                    h4("Results wil be here..."),
+                   uiOutput("uiCriteriaResults"),
                    tableOutput("tblCriteriaCombinations"),
-                   tableOutput("tblFeatureCombinations"),
-                   tableOutput("tblWtf")
+                   tableOutput("tblFeatureCombinations")
           ),
           tabPanel("Evaluation Form",
-                   h4("Evaluate your Faschnizzle below"),
-                   textInput("txtExpertName","Your Name:"),
-                   fluidRow(column(7,
-                                   h3('Evaluate Criteria'),
-                                   uiOutput("uiEvaluateCriteria"),
-                                   h3("Evaluate Features"),
-                                   uiOutput("uiEvaluateFeatures"),
-                                   h3("Evaluate Alternatives"),
-                                   uiOutput("uiEvaluateAlternatives")
-                      )),
-                   actionButton("btnSaveOpinion", "Save Your Stuff")
+                   h4("Evaluate your model below"),
+                   p("Instructions will go here..."),
+                   textInput("txtExpertName","Your Name:"),                   
+                   actionButton("btnSaveOpinion", "Save Your Stuff"),
+
+                   tabsetPanel(
+                     tabPanel("Criteria",
+                              fluidRow(column(7,
+                                              h3('Evaluate Criteria'),
+                                              uiOutput("uiEvaluateCriteria")
+                              ))
+                     ),
+                     tabPanel("Features",
+                              fluidRow(column(7,
+                                              h3("Evaluate Features"),
+                                              uiOutput("uiEvaluateFeatures")
+                              ))
+                     ),
+                     tabPanel("Alternatives",
+                              fluidRow(column(7,
+                                              h3("Evaluate Alternatives"),
+                                              uiOutput("uiEvaluateAlternatives")
+                              ))
+                     )
+                   )
               ),
           tabPanel("Previous Models",
                    actionButton("btnLoadModels", "Load all models"),
@@ -103,30 +109,35 @@ server <- function(input, output, session) {
   
   #TODO need to also pre-set the alternatives up here...
 
-  hdp=reactiveValues(tree=NULL,criteria=NULL,factors=NULL,criteriaCombos=NULL,featureCombos=NULL,alternatives="Eggs, Waffles, Oatmeal",alternativeCombos=NULL,expertName=NULL,loadedModels=NULL)
+  hdp=reactiveValues(tree=NULL,criteria=NULL,factors=NULL,criteriaCombos=NULL,featureCombos=NULL,
+                     alternatives="Eggs, Waffles, Oatmeal",alternativeCombos=NULL,expertName=NULL,
+                     loadedModels=NULL,currentModelName=NULL, treeLevels=NULL)
   hdp$tree <- tree
+  hdp$treeLevels <- 3
   
   #################################################
   # Design the model
   #################################################
   
   observe(
-    hdp$expertName <= input$txtExpertName
+    hdp$expertName <- input$txtExpertName
   )
   
+  #TODO this builds the tree from the form, needs to be more dynamic...
   ui.tree.rebuild <- function () {
     print("rebuilding tree...")
     hdp$tree <- Node$new(input$txtDecison)
 
     #add nodes to tree for each criteria
     hdp$criteria <- unlist(strsplit(input$txtCriteria, ","))
+    hdp$criteria <- sapply(hdp$criteria,trim)
     for(v in hdp$criteria) {
       trimV <- trim(v)
       hdp$tree$AddChildNode(child=Node$new(trimV))
       
+      #TODO we know how many levels
+      
       #add the feature nodes
-      #print(input[[paste0('criteraFeature_',trimV)]])
-      #print(!is.null(input[[paste0('criteraFeature_',trimV)]]))
       if(!is.null(input[[paste0('criteraFeature_',trimV)]])) {
         fSplit <- unlist(strsplit(input[[paste0('criteraFeature_',trimV)]],","))
         for(n in fSplit) {
@@ -136,11 +147,11 @@ server <- function(input, output, session) {
     }
   }
   
-  #TODO need to figure out why this is putting commas in the blank field??
+  #add text inputs for the factors
   ui.factors.update <- function() {
     print("updating factors...")
     output$uiDynaFactors <- renderUI({
-      lapply(1:length(hdp$tree$children),function(i){   
+      lapply(1:length(hdp$tree$children),function(i){   #for each criteria
         textInput(paste0("criteraFeature_",hdp$tree$children[[i]]$name),
                   hdp$tree$children[[i]]$name,
                   value = 
@@ -158,6 +169,36 @@ server <- function(input, output, session) {
     })
   }
   
+  #This button will add another level to the model  
+  observeEvent(input$btnAddFactorLevel, {
+    #TODO add another level in the tree
+    # - find the nodes at the last level
+    dfLevels <- ToDataFrameTree(hdp$tree, "level", "name")
+    #print(dfLevels)
+    dfLastLevel <- dfLevels[dfLevels$level == hdp$treeLevels,c("level","name")]
+    #print(dfLastLevel)
+    #add a text input for each leaf in the previous level
+    output$uiDynaLevels <- renderUI({
+      lapply(1:nrow(dfLastLevel), function(i) {
+        textInput(paste0("factorLevel_",hdp$treeLevels,"_",dfLastLevel[[i,"name"]]),
+                  dfLastLevel[[i,"name"]],
+                  value="value here...")
+      })
+    })
+    
+    #update the tree
+    lapply(1:nrow(dfLastLevel),function(i) {
+      print(dfLastLevel[[i,"name"]])
+      FindNode(node=hdp$tree,name = dfLastLevel[[i,"name"]])$AddChildNode(child=Node$new(paste0("test",i))) # add child
+    })
+    print(hdp$tree)
+
+    #update the number of levels...
+    hdp$treeLevels <- hdp$treeLevels + 1
+    
+    #TODO add a dynamic button to remove the level
+  })
+  
   #update values from Decision and Criteria
   observe({
     print("observe and update decsion and criteria")
@@ -170,8 +211,10 @@ server <- function(input, output, session) {
     ui.factors.update()
   })
 
-  #
+  #Update the tree and the evaluation form
   observeEvent(input$btnRebuildTree, {
+    hdp$currentModelName <- input$txtModelName
+    
     print("btn to update factors")
     ui.tree.rebuild()
     ui.factors.update()
@@ -186,75 +229,74 @@ server <- function(input, output, session) {
         #TODO need to style this better...
         span(altSlplitter[i],class="btn btn-success")
       })
-      hdp$alternatives <- alternativeList
+      hdp$alternatives <- altSlplitter
       do.call(shiny::tagList,alternativeList)
     })
   })
   
-  #once model is designed, save it to the DB
+  #once model is designed, save it to the DB - CHECK
   observeEvent(input$btnSaveModel, {
-    #TODO need to add the alternatives
     #TODO maybe the best thing is to read the URL and generate the UI that way...
-    # I think RJSON might be the best package to use: https://cran.r-project.org/web/packages/rjson/rjson.pdf
     dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString")
+    #print("Structure going in: ")
+    #print(str(dfTreeAsNetwork))
     
-    fullJson <- paste0('{ "modelName" : "',input$txtModelName,'","model":',toJSON(dfTreeAsNetwork),'}')
-    print(fullJson)
+    fullJson <- paste0('{ "modelName" : "',input$txtModelName,'","model":', toJSON(dfTreeAsNetwork),
+                       ',"alternatives":',toJSON(hdp$alternatives),
+                       '}')
+    #print(fullJson)
 
     saveData(fullJson)
   })
   
+  #TODO can prob get rid of this
   output$modelSelectInfo = renderPrint({
     s = input$dtMongoOutput_rows_selected
     if (length(s)) {
-      cat('These rows were selected:\n\n')
+      cat('Rows selected: ')
       cat(s, sep = ', ')
     }
   })
   
+  #when a row is selected from the grid, load it onto the page - CHECK
   observe({
     s = input$dtMongoOutput_rows_selected
     if (length(s)) {
-      #TODO then do the opposite of this to load everything:
-      #dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString")
-      #fullJson <- paste0('{ "modelName" : "',input$txtModelName,'","model":',toJSON(dfTreeAsNetwork),'}')
-      #print(fullJson)
-      print(s) #the index of the row...
-      selectedObjectId <- hdp$loadedModels[[s,"_id"]]
-      print(selectedObjectId)
+      selectedObjectId <- hdp$loadedModels[[s,"_id"]] #get objectId based on selected index
+      #print(selectedObjectId)
       mod <- loadModel(selectedObjectId)
-      print("ModelName and structure??")
-      #print(mod$modelName)
-      #str(mod$modelName)
-      print("Model Structure")
-      #print(str(mod$model))
-      print(mod$model[[1,5]])
       
-      #output$tblWtf <- renderTable(mod$model)
-      #newModel <- do.call(rbind,mod$model)
-      #print("-----New Model")
+      #load the model name
+      hdp$currentModelName <- mod$modelName
+      updateTextInput(session, "txtModelName", value = hdp$currentModelName)
+      
+      #turn the model back into a tree
+      froms <- eval(parse(text = mod$model$from))
+      tos <- eval(parse(text = mod$model$to))
+      pathStrings <- eval(parse(text = mod$model$pathString))
+      
+      goodDf <- data.frame(froms,tos,pathStrings)
+      hdp$tree <- FromDataFrameNetwork(goodDf)
+      
+      #load the alternatives
+      updateTextInput(session, "txtAlternatives", value = mod$alternatives)
+      hdp$alternatives <- mod$alternatives
 
-      #output$tblFeatureCombinations <- renderTable(newModel)
-      #print(newModel)
-      #newModel <- as.data.frame(newModel)
-      #hdp$tree <- as.Node(newModel[,c("pathString")], mode = "network", 
-      #                    pathName = "pathString", 
-      #                    pathDelimiter = "/")
     }
   })
   
-  #TODO this would be great to have "load my models" - input email and get them
+  #TODO this would be great to have "load my models" - input email and get them 
   #TODO - maybe enter a user pin -not super secure...?
   observeEvent(input$btnLoadModels, {
     print("Loading Models")
     #uiDynaModels
     modelData <- loadAllModels()
     #dtMongoOutput
-    print(modelData)
+    #print(modelData)
     hdp$loadedModels <- modelData
     output$dtMongoOutput <- renderDataTable({
       
-      datatable(modelData, list(mode = "single", target = "cell"))
+      datatable(modelData, list(mode = "single", target = "cell", selection = "single"))
       
     }, escape = FALSE
     )
@@ -277,11 +319,11 @@ server <- function(input, output, session) {
     
     #Get the criteria first
     dfCriteria <- dfLevels[dfLevels$level == 2,c("from","to","level","name")]
-    print(paste0("dfCrits:",dfCriteria))
+    #print(paste0("dfCrits:",dfCriteria))
     criteriaCombos <- expand.grid.unique(dfCriteria$name, dfCriteria$name)
     hdp$criteriaCombos <- criteriaCombos
     #TODO this should be the symetrical matrix
-    output$tblCriteriaCombinations <- renderTable(criteriaCombos)
+    #output$tblCriteriaCombinations <- renderTable(criteriaCombos)
     #build the critiera sliders
     output$uiEvaluateCriteria <- renderUI({
       sliders <- lapply(1:nrow(criteriaCombos), function(i) {
@@ -317,8 +359,8 @@ server <- function(input, output, session) {
     ################################################
     # build the sliders for each feature group
     dfFeatures <- dfLevels[dfLevels$level == 3,c("from","to","level","name")]
-    print("----FEATURES")
-    print(dfFeatures)
+    #print("----FEATURES")
+    #print(dfFeatures)
     output$uiEvaluateFeatures <- renderUI({
       criteriaApply <- lapply(1:nrow(dfCriteria), function(s){
         cNode <- dfCriteria[[s,"to"]]
@@ -350,7 +392,7 @@ server <- function(input, output, session) {
       cNode <- dfCriteria[[h,"to"]]
       dfCriteriaFeatures <- dfFeatures[which(dfFeatures$from == cNode),"name"]
       featureCombos <- expand.grid.unique(dfCriteriaFeatures, dfCriteriaFeatures)
-      print(paste0("fcombos:",featureCombos))
+      #print(paste0("fcombos:",featureCombos))
       if(length(featureCombos) > 0) {
         lapply(1:nrow(featureCombos), function(g) {
           observeEvent(input[[paste0("sliderf_",g,h)]], {
@@ -368,7 +410,7 @@ server <- function(input, output, session) {
     ################################################
     # build the sliders for alternatives for each feature
     alternativeCombos <- expand.grid.unique(hdp$alternatives, hdp$alternatives)
-    print(alternativeCombos)
+    #print(alternativeCombos)
     
     output$uiEvaluateAlternatives <- renderUI({
       featureBuilder <- lapply(1:nrow(dfFeatures), function(b) {
@@ -428,7 +470,7 @@ server <- function(input, output, session) {
     #show them on the page
     #TODO would be great to estimate how long evaluations will take so we can warn the user
     # - how likely people will be to take the evaluation
-    output$tblCriteriaCombinations <- renderTable(criteriaCombos)
+    #output$tblCriteriaCombinations <- renderTable(criteriaCombos)
     output$tblFeatureCombinations <- renderTable(featureCombos)
 
       #add the sliders to the page
@@ -495,7 +537,11 @@ server <- function(input, output, session) {
       })
     })
   }
-
+  
+  hdp.matrix.calulate <- function(combos) {
+    #TODO move code up here for matrix calcuations
+  }
+  
   #Get the values from dynamic sliders and save them
   observeEvent(input$btnSaveOpinion, {
     #### get the weights from the dynamic sliders
@@ -507,50 +553,72 @@ server <- function(input, output, session) {
       colnames(dfOut) <- c(dfCriteria[[i]][[1]], dfCriteria[[i]][[2]])
       return(dfOut)
     })
+    
+    print(criteriaDfList)
+    trimmedCriteria <- sapply(hdp$criteria,trim)
+    
+    A <- matrix(, 
+                  nrow = length(trimmedCriteria), 
+                  ncol = length(trimmedCriteria), 
+                  dimnames = list(trimmedCriteria,trimmedCriteria))
+    diag(A) <- 1
+    for(df in criteriaDfList) {
+      #print(paste0("Colname1:",colnames(df)[1]," Colname2:",colnames(df)[2]," df1,1:",df[[1,1]]," df1,2:",df[[1,2]]))
+      A[colnames(df)[1],colnames(df)[2]] <- df[[1,1]]
+      A[colnames(df)[2],colnames(df)[1]] <- df[[1,2]]
+    }
+    print(A)
+    
+    output$tblCriteriaCombinations <- renderTable(A)
+    
+    #calculate everything else    
+    B <- t(A) / A
+    diag(B) <- 1
+    B.norm <- sweep(B,2,colSums(B),`/`)
+    nMeans <- rowMeans(B.norm)
+    nSd <- apply(B.norm,1,sd)
+    nVar <- apply(B.norm,1,var)
+    inconsistency <- sqrt(sum(nVar) * .25)
+    
+    aOut <- print(xtable(A, align=rep("c", ncol(A)+1)), 
+                         floating=FALSE, tabular.environment="array", comment=FALSE, print.results=FALSE)
+    
+    bOut <- print(xtable(B, align=rep("c", ncol(B)+1)), 
+                  floating=FALSE, tabular.environment="array", comment=FALSE, print.results=FALSE)
+    
+    
+    M <- print(xtable(A, align=rep("c", ncol(A)+1)), 
+               floating=FALSE, tabular.environment="array", comment=FALSE, print.results=FALSE)
 
-    #features
-    dfFeatures <- split(hdp$featureCombos,rep(1:nrow(hdp$featureCombos),1))
-    featureDfList <- lapply(1:nrow(hdp$featureCombos), function(i) {
-      dfOut <- data.frame(streOne = c(input[[paste0("sliderf_",i)]]), streTwo = c(100 - input[[paste0("sliderf_",i)]]))
-      colnames(dfOut) <- c(dfFeatures[[i]][[1]], dfFeatures[[i]][[2]])
-      return(dfOut)
+    html <- paste0("$$", M, "$$")
+    
+    output$uiCriteriaResults <- renderUI({
+      list(
+        withMathJax(html),
+        withMathJax(B),
+        div(paste0("nMeans: ",nMeans)),
+        div(paste0("nVar: ",nVar)),
+        div(paste0("inconsistency: ",inconsistency)),
+        A,B
+      )
     })
     
-    print(featureDfList)
-    
-    dynaMatrix <- matrix(nrow = length(hdp$factors), ncol = length(hdp$factors))
-    dimnames(dynaMatrix) = list(hdp$factors,hdp$factors)
-    print(dynaMatrix)
-    print(hdp$factors)
-    #TODO either debug or print these values...
-    #dMatrix <- lapply(1:length(featureDfList), function(i){
-      #dynaMatrix[as.character(colnames(featureDfList[[i]])[2]),as.character(colnames(featureDfList[[i]])[1])] <- as.double(featureDfList[[i]][[1,1]])
-      #dynaMatrix[as.character(colnames(featureDfList[[i]])[1]),as.character(colnames(featureDfList[[i]])[2])] <- as.double(featureDfList[[i]][[1,2]])
-      #return(dynaMatrix)
-      #print(colnames(featureDfList[[i]])[2])
-      #print(featureDfList[[i]][[1,1]])
-      #print(featureDfList[[i]][[1,2]])
-    #})
-    
-    #print(dMatrix)
-    
-    saveData(ToDataFrameTree(hdp$tree, "level", "name"))
-    
-    #dynaMatrix[as.character(colnames(df1)[2]),as.character(colnames(df1)[1])] <- as.double(df1[1][1])
-    #dynaMatrix[as.character(colnames(df1)[1]),as.character(colnames(df1)[2])] <- as.double(df1[2][1])
     
 
+    #features
+    #dfFeatures <- split(hdp$featureCombos,rep(1:nrow(hdp$featureCombos),1))
+    #featureDfList <- lapply(1:nrow(hdp$featureCombos), function(i) {
+    #  dfOut <- data.frame(streOne = c(input[[paste0("sliderf_",i)]]), streTwo = c(100 - input[[paste0("sliderf_",i)]]))
+    #  colnames(dfOut) <- c(dfFeatures[[i]][[1]], dfFeatures[[i]][[2]])
+    #  return(dfOut)
+    #})
     
-    #TODO loop through dataframe list, create matrix like this, df1 would be the element of the loop:
-    #dynaMatrix[as.character(colnames(df1)[2]),as.character(colnames(df1)[1])] <- as.double(df1[1][1])
-    #dynaMatrix[as.character(colnames(df1)[1]),as.character(colnames(df1)[2])] <- as.double(df1[2][1])
+    #print(featureDfList)
     
-    #TODO save the weights
-    # - this will have to get dynamic values from sliders and save them
-    #https://daattali.com/shiny/persistent-data-storage/
-    # use this for mongoDB: https://mlab.com/plans/pricing/
-    # HDPM0ng0DB!
+    #saveData(ToDataFrameTree(hdp$tree, "level", "name"))
+    
   })
+
   
   #################################################
   # end Build out UI for expert evaluation
@@ -582,6 +650,11 @@ server <- function(input, output, session) {
   #################################################
   # -> mongo stuff
   #################################################
+  #for hosting?
+  #https://daattali.com/shiny/persistent-data-storage/
+  # use this for mongoDB: https://mlab.com/plans/pricing/
+  # HDPM0ng0DB!
+  
   options(mongodb = list(
     "host" = "localhost:27017",
     "username" = "dev",

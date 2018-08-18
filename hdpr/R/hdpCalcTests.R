@@ -1,16 +1,9 @@
 
-abLables <- list("A","B","C")
+abLables <- list("A","B","C","D")
 
 #TODO the formula to compare these is in the treeTester.R file
 
-#AB <- c(80, 20) #df1
-#outerAB <- outer(AB, AB, '/')
-#AC <- c(90, 10) #df2
-#outerAC<- outer(AC,AC,'/')
-#BC <- c(80, 20) #df4
-#outerBC <- outer(BC,BC,'/')
-
-#create a matrix with the dimentions and names of the model's labels
+#TODO create a matrix with the dimentions and names of the model's labels
 dynaMatrix <- matrix(nrow = length(abLables), ncol = length(abLables))
 dimnames(dynaMatrix) = list(abLables,abLables)
 
@@ -24,13 +17,16 @@ df4 <- data.frame("B" = c(80), "C" = c(20))
 df5 <- data.frame("B" = c(90), "D" = c(10))
 df6 <- data.frame("C" = c(80), "D" = c(20))
 
-#require(plyr)
-#dfFlat <- rbind.fill(df1, df2, df3, df4, df5, df6)
-#TODO I should be able to loop through inputs, create dynamic dataframes
+dfList <- list(df1,df2,df3,df4,df5,df5,df6)
 
-#TODO loop through dataframe list, create matrix like this, df1 would be the element of the loop:
-dynaMatrix[as.character(colnames(df1)[2]),as.character(colnames(df1)[1])] <- as.double(df1[1][1])
-dynaMatrix[as.character(colnames(df1)[1]),as.character(colnames(df1)[2])] <- as.double(df1[2][1])
+mat <- matrix(, nrow = length(abLables), ncol = length(abLables), dimnames = list(abLables,abLables))
+diag(mat) <- 1
+for(df in dfList) {
+  #print(paste0("Colname1:",colnames(df)[1]," Colname2:",colnames(df)[2]," df1,1:",df[[1,1]]," df1,2:",df[[1,2]]))
+  mat[colnames(df)[1],colnames(df)[2]] <- df[[1,1]]
+  mat[colnames(df)[2],colnames(df)[1]] <- df[[1,2]]
+}
+
 
 #the stuff above would create "A" then code below can go away
 A <- structure(c(NA,df1$B[1],df2$C[1],df3$D[1],
