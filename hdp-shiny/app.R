@@ -135,7 +135,13 @@ server <- function(input, output, session) {
       trimV <- trim(v)
       hdp$tree$AddChildNode(child=Node$new(trimV))
       
-      #TODO we know how many levels
+      #build the tree based on the number of dynamic inputs
+      #lapply(1:hdp$treeLevels, function(i) { #for each level
+        #get all inputs at that level...
+        #if the input isn't null
+        #split the input on commas, trim it
+        #add each result to the parent based on it's name
+      #})
       
       #add the feature nodes
       if(!is.null(input[[paste0('criteraFeature_',trimV)]])) {

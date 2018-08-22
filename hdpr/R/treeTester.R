@@ -16,7 +16,7 @@ goToR <- it$AddChild("Switch to R")
 #this is all styling stuff
 SetGraphStyle(acme, rankdir = "TB")
 SetEdgeStyle(acme, arrowhead = "vee", color = "grey35", penwidth = 2)
-SetNodeStyle(acme, style = "filled,rounded", shape = "box", fillcolor = "GreenYellow", 
+SetNodeStyle(acme, style = "filled,rounded", shape = "box", fillcolor = "GreenYellow",
              fontname = "helvetica", tooltip = GetDefaultTooltip)
 SetNodeStyle(acme$IT, fillcolor = "LightBlue", penwidth = "5px")
 
@@ -45,7 +45,7 @@ expand.grid.unique <- function(x, y, include.equals=FALSE)
 #levelOne <- lapply(
 # levelOneNodes,function(i) {
 #   out <- acme$Get(i)
-# } 
+# }
 #)
 
 #- Put the tree into a data frame
@@ -65,7 +65,7 @@ levelThreeCombos <- expand.grid.unique(dfLevel3$name, dfLevel3$name)
 #TODO
 #- move this over to the shiny app
 #- create interface for comparisons dynamically
-#- 
+#-
 #- for each row of the unique combinations, create the comparison page
 #- then I can take the values of the comparisons and use them in the hdpCalcTest file
 #- save them using this example: https://daattali.com/shiny/persistent-data-storage/
@@ -106,5 +106,7 @@ print(testAcme2)
 plot(testAcme2)
 
 levelThree <- Prune(acme,pruneFun = function(x) x$level == 3)
+
+print(outsource$parent$name)
 
 
