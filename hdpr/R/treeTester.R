@@ -108,5 +108,5 @@ plot(testAcme2)
 levelThree <- Prune(acme,pruneFun = function(x) x$level == 3)
 
 print(outsource$parent$name)
-
+print(acme$height)
 
