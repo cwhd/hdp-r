@@ -1,4 +1,4 @@
-# HDP-R 2 - Clean rebuild of the other version
+# HDP-R - Clean rebuild of the other version
 # A shiny based interface to collect data for HDP models
 
 library(shiny)
@@ -12,7 +12,8 @@ library(xtable)
 source("modules/utilities.r",local=T)
 source("modules/db.functions.r",local=T)
 source("modules/tree.helper.r",local=T)
-source("modules/slider.ui.r",local=T)
+source("modules/ui.elements.r",local=T)
+source("modules/matrix.helper.r",local=T)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -25,14 +26,10 @@ ui <- fluidPage(
       wellPanel(
         textInput("txtModelName","Model Name",placeholder = "The name of your model"),
         textInput("txtDecison","Decision", placeholder = "Whatever you're trying to decide"),
-        textInput("txtCriteria","Criteria", placeholder = "i.e.) criteria1,2, etc"),
-        actionButton("btnAddFactorLevel", "Initialize Factors")
+        textInput("txtCriteria","Criteria", placeholder = "i.e.) criteria1,2, etc")
       ),
       wellPanel(
-        fluidRow(
-          column(3,h5("Factors")),
-          column(3,actionButton("btnRebuildTree", "Rebuild Tree"))
-        ),
+        h5("Factors"),
         uiOutput("uiDynaFactors")
       ),
       wellPanel(
@@ -46,7 +43,8 @@ ui <- fluidPage(
         tabPanel("Model Designer",
                  wellPanel(
                    h3("Decision Tree"),
-                   actionButton("btnSaveModel", "Save Model")
+                   actionButton("btnSaveModel", "Save Model"),
+                   actionButton("btnRebuildTree", "Rebuild Tree")
                  ),
                  grVizOutput("xx"),
                  wellPanel(
@@ -57,7 +55,6 @@ ui <- fluidPage(
         tabPanel("Model Results",
                  h4("Results wil be here..."),
                  uiOutput("uiCriteriaResults"),
-                 tableOutput("tblCriteriaCombinations"),
                  tableOutput("tblFeatureCombinations")
         ),
         tabPanel("Evaluation Form",
@@ -82,7 +79,6 @@ ui <- fluidPage(
     )
   )
 )
-
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
@@ -114,8 +110,7 @@ server <- function(input, output, session) {
         paste(trim(hdp$tree$children[[i]]$name),sep = ",")
       })
     ))
-    #TODO update factors here...or not??
-    #ui.initialFactors.build()
+    ui.initialFactors.build()
   })
   
   observeEvent(input$btnRebuildTree, {
@@ -135,7 +130,8 @@ server <- function(input, output, session) {
       newtree$AddChildNode(child=Node$new(trimV))
     }
 
-    #create features for each leve in the tree
+    #TODO this shouldn't look at the old tree...or should it?
+    #create features for each level in the tree
     print("adding features")
     features <- lapply(2:hdp$tree$height, function(i){
       print(paste0("---On Level: ",i))
@@ -154,24 +150,54 @@ server <- function(input, output, session) {
     print("------Final Tree")
     print(newtree)
     hdp$tree <- newtree
-    
+    #update the expert evaluation
     ui.evaluation.build()
   }
   
-  observeEvent(input$btnAddFactorLevel, {
-    ui.initialFactors.build()
-  })
-
+  ui.refresh.fromTree <- function(tree) {
+    #TODO rebuild the form from a tree from the DB
+    print("----Rebuilding Tree")
+    #start with the defintion 
+    newtree <- Node$new(input$txtDecison)
+    #add criteria
+    hdp$criteria <- unlist(strsplit(input$txtCriteria, ","))
+    hdp$criteria <- sapply(hdp$criteria,trim)
+    for(v in hdp$criteria) {
+      trimV <- trim(v)
+      newtree$AddChildNode(child=Node$new(trimV))
+    }
+    
+    #TODO this shouldn't look at the old tree...or should it?
+    #create features for each level in the tree
+    print("adding features")
+    features <- lapply(2:hdp$tree$height, function(i){
+      print(paste0("---On Level: ",i))
+      #get the elementes at the current level of the tree
+      currentElements <- getNodeNamesAtLevel(hdp$tree, i)
+      # - get the textInput, add it to the tree
+      lapply(1:length(currentElements),function(j) {
+        nextLevelChildrenText <- unlist(strsplit(input[[paste0('textLevel_',i,"_",currentElements[[j]])]],","))
+        if(length(nextLevelChildrenText) > 0) {
+          lapply(1:length(nextLevelChildrenText),function(k) {
+            FindNode(node=newtree,name = currentElements[[j]])$AddChildNode(child=Node$new(trim(nextLevelChildrenText[[k]])))
+          })
+        }
+      })
+    })
+    print("------Final Tree")
+    print(newtree)
+    hdp$tree <- newtree
+    #update the expert evaluation
+    ui.evaluation.build()
+  }
+  
   #update the factors
   ui.initialFactors.build <- function(){
     print("ui.initialFactors.build()")
-    
-    hdp$criteria <- unlist(strsplit(input$txtCriteria, ","))
-    hdp$criteria <- sapply(hdp$criteria,trim)
-    
-    output$uiDynaFactors <- renderUI({
+
+        output$uiDynaFactors <- renderUI({
       featureLevels <- lapply(2:hdp$tree$height, function(i) { #3 = first level of factors
-        ui.level.textInput.generate(i)
+        ui.level.textInput.generate(i, hdp$tree)
       })
       do.call(tabsetPanel,featureLevels)
     })
@@ -179,32 +205,7 @@ server <- function(input, output, session) {
     #TODO add a dynamic button to remove the level
   }
   
-  #TODO move this into a UI function file...
-  #generate text inputs for somewhere on the page
-  ui.level.textInput.generate <- function(level) {
-    print("ui.leveltextInput.generate")
-    nodesAtLevel <- getNodeNamesAtLevel(hdp$tree, level)
-    
-    textBoxes <- lapply(1:length(nodesAtLevel),function(i){   #for each node at the current level
-      #add a node to the tree for the new text input
-      if(length(nodesAtLevel > 0)) {
-        currentNode <- FindNode(node=hdp$tree,name = nodesAtLevel[[i]])
-        textInput(paste0("textLevel_",level,"_",nodesAtLevel[[i]]),
-                  nodesAtLevel[[i]],
-                  value = childrenOrNothing(currentNode)
-        )
-      }
-    })
-
-    taby <- tabPanel(paste0("Level ",level),
-      textBoxes
-    )
-    
-    taby
-  }
-  
-  #When alternatives are added, put them on the screen under the tree
-  #TODO this could be a good candidate for a module?
+  #observer to add alternatives
   observe({
     print("altSplitter")
     altSlplitter <- unlist(strsplit(input$txtAlternatives, ","))
@@ -218,6 +219,7 @@ server <- function(input, output, session) {
     })
   })
   
+  #observer to render the tree
   observe({
     print("rendering gridViz")
     output$xx=renderGrViz({
@@ -225,6 +227,50 @@ server <- function(input, output, session) {
     })
   })
   
+  #Get the values from dynamic sliders and save them
+  #TODO need to add them as elements of the tree and save them
+  observeEvent(input$btnSaveOpinion, {
+    #### get the weights from the dynamic sliders
+    #TODO maybe it would be better if this was reactive??
+    
+    dfLevels <- ToDataFrameNetwork(hdp$tree, "level", "name")
+    comparisonPanelNumber <- hdp$tree$height
+    if(length(hdp$alternatives > 0)) { comparisonPanelNumber <- comparisonPanelNumber + 1 }
+    #TODO this needs to roll everything up every level
+    criteriaDfList <- lapply(2:comparisonPanelNumber, function(i) {
+      combos <- treeLevel.combos.unique(i, dfLevels, hdp$tree, hdp$alternatives)
+      comboFrames <- comboFrames.buildFromSliders(combos, i)
+      
+      populatedMatrix <- {
+        if(i == comparisonPanelNumber) {
+          dfComparisons <- dfLevels[dfLevels$level == i-1,c("from","to","level","name")]
+          #matrixColumns <- c(dfComparisons$name,hdp$alternatives)
+          matrixColumns <- dfComparisons$name
+          matrix.alternativesVsFeatures(matrixColumns, hdp$alternatives, comboFrames)
+        } else {
+          dfComparisons <- dfLevels[dfLevels$level == i,c("from","to","level","name")]
+          matrixColumns <- dfComparisons$name
+          matrix.buildFromComboFrames(matrixColumns,comboFrames)
+        }
+      }
+      print("----pop Mat")
+      print(populatedMatrix)
+
+      calculatedMatrix <- matrix.calculate(populatedMatrix)
+    })
+
+    print("---criteriaDfList")
+    print(criteriaDfList)
+
+    output$uiCriteriaResults <- renderUI({
+      matrixOutputs <- lapply(1:length(criteriaDfList),function(i){
+        renderTable(
+          criteriaDfList[i]
+          )
+      })
+      do.call(tagList,matrixOutputs)
+    })
+  })
   
   ##################################################
   # -> slider functions
@@ -238,7 +284,7 @@ server <- function(input, output, session) {
     if(length(hdp$alternatives > 0)) { comparisonPanelNumber <- comparisonPanelNumber + 1 }
     output$uiEvaluateCriteria <- renderUI({
       sliders <- lapply(2:comparisonPanelNumber, function(i) {
-        ui.sliders.generate(i,dfLevels)
+        ui.sliders.generate(i,dfLevels, hdp$tree, hdp$alternatives)
       })
       do.call(tabsetPanel,sliders)
     })
@@ -248,52 +294,19 @@ server <- function(input, output, session) {
     })
   }
   
-  slider.combos.unique <- function(level, dfLevels) {
-    #TODO if this is the last level of the tree and there are alternatives,
-    # - compare all alternatives will everything in the last level
-    #print(paste0("alties: ",length(hdp$alternatives)))
-    #comparisonPanelNumber
-    if(level > hdp$tree$height) {
-    #if(length(hdp$alternatives > 0) && level == hdp$tree$height + 1) {
-      print("we have alternatives and are on the last row")
-      dfComparisons <- dfLevels[dfLevels$level == level - 1,c("from","to","level","name")]
-      combos <- expand.grid.unique(dfComparisons$name, hdp$alternatives)
-      print(combos)
-      combos    
-    } else {
-      #print("not doing alternatives right now")
-      dfComparisons <- dfLevels[dfLevels$level == level,c("from","to","level","name")]
-      combos <- expand.grid.unique(dfComparisons$name, dfComparisons$name)
-      combos    
-    }
-  }
-  
-  ui.sliders.generate <- function(level, dfLevels) {
-    combos <- slider.combos.unique(level, dfLevels)
-    #build the critiera sliders for a level in the tree
-    sliders <- lapply(1:nrow(combos), function(i) {
-      fluidRow(
-        column(1, 
-               span(combos[i,1]),
-               uiOutput(paste0("uiOutputValueA_",level,"_",i))
-        ),
-        column(5,
-               sliderInput(paste0("slider_",level,"_",i),"",value = 50, min = 0, max = 100)
-        ), 
-        column(1,
-               span(combos[i,2]),                 
-               uiOutput(paste0("uiOutputValueB_",level,"_",i))
-        )
-      )
+  comboFrames.buildFromSliders <- function(combos, level) {
+    dfCriteria <- split(combos,rep(1:nrow(combos),1))
+    criteriaDfList <- lapply(1:nrow(combos), function(i) {
+      dfOut <- data.frame(streOne = c(input[[paste0("slider_",level,"_",i)]]), streTwo = c(100 - input[[paste0("slider_",level,"_",i)]]))
+      colnames(dfOut) <- c(dfCriteria[[i]][[1]], dfCriteria[[i]][[2]])
+      return(dfOut)
     })
-    
-    taby <- tabPanel(paste0("Level ",level), sliders)
-    taby
+    criteriaDfList
   }
   
   ui.sliders.observers.add <- function(level, dfLevels) {
     #add observers to the critiera sliders
-    combos <- slider.combos.unique(level, dfLevels)
+    combos <- treeLevel.combos.unique(level, dfLevels, hdp$tree, hdp$alternatives)
     
     lapply(1:nrow(combos), function(i) {
       observeEvent(input[[paste0("slider_",level,"_",i)]], {
@@ -332,7 +345,7 @@ server <- function(input, output, session) {
         
         datatable(modelData, list(mode = "single", target = "cell", selection = "single"))
         
-      }, escape = FALSE
+      }, escape = FALSE, server = FALSE
       )
     })
   })
@@ -361,7 +374,11 @@ server <- function(input, output, session) {
       updateTextInput(session, "txtAlternatives", value = mod$alternatives)
       hdp$alternatives <- mod$alternatives
       
+      #TODO set criteria and stuff...
+      
       #TODO reload everything...
+      #tree.rebuild() 
+      
     }
   })
   
@@ -379,7 +396,7 @@ server <- function(input, output, session) {
     
     saveData(fullJson)
   })
-
+  
 #####################################################
 # End DB Functions
 #####################################################

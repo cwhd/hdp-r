@@ -22,3 +22,16 @@ addTreeBranches <- function(tree, level) {
     currentNode$AddChildNode(child=Node$new(paste0("test",i))) # add child
   }
 }
+
+#get unique combinations of elements at a level in the tree
+treeLevel.combos.unique <- function(level, dfLevels, tree, alternatives) {
+  if(level > tree$height) {
+    dfComparisons <- dfLevels[dfLevels$level == level - 1,c("from","to","level","name")]
+    combos <- expand.grid.unique(dfComparisons$name, alternatives)
+    combos    
+  } else {
+    dfComparisons <- dfLevels[dfLevels$level == level,c("from","to","level","name")]
+    combos <- expand.grid.unique(dfComparisons$name, dfComparisons$name)
+    combos    
+  }
+}
