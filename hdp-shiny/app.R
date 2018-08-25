@@ -44,7 +44,7 @@ ui <- fluidPage(
                  wellPanel(
                    h3("Decision Tree"),
                    actionButton("btnSaveModel", "Save Model"),
-                   actionButton("btnRebuildTree", "Rebuild Tree")
+                   actionButton("btnRebuildTree", "Rebuild Tree From Form")
                  ),
                  grVizOutput("xx"),
                  wellPanel(
@@ -84,9 +84,8 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   #reactive values used through the app
-  hdp=reactiveValues(tree=NULL,criteria=NULL,factors=NULL,criteriaCombos=NULL,featureCombos=NULL,
-                     alternatives=NULL,alternativeCombos=NULL,expertName=NULL,
-                     loadedModels=NULL,currentModelName=NULL, treeLevels=NULL)
+  hdp=reactiveValues(tree=NULL,criteria=NULL,factors=NULL,criteriaCombos=NULL,
+                     alternatives=NULL,loadedModels=NULL,currentModelName=NULL)
 
   defaultTree <- Node$new("What to eat for breakfast")
   taste <- defaultTree$AddChild("Taste")
@@ -99,105 +98,70 @@ server <- function(input, output, session) {
   hdp$tree <- defaultTree
   hdp$currentModelName <- "Breakfast Chooser"
   
-  #update values from Decision and Criteria
-  observe({
-    print("observe and update decsion and criteria")
-    
-    updateTextInput(session, "txtModelName", value = toString(hdp$currentModelName))
-    updateTextInput(session, "txtDecison", value = toString(hdp$tree$name))
-    updateTextInput(session, "txtCriteria", value = toString(
-      lapply(1:length(hdp$tree$children), function(i){
-        paste(trim(hdp$tree$children[[i]]$name),sep = ",")
-      })
-    ))
-    ui.initialFactors.build()
-  })
-  
   observeEvent(input$btnRebuildTree, {
-   tree.rebuild() 
+    ui.refresh.fromForm()
   })
     
-  #get data from the form, rebuild the tree
-  tree.rebuild <- function() {
-    print("----Rebuilding Tree")
-    #start with the defintion 
+  #this will update everything base on whatever is on the form
+  ui.refresh.fromForm <- function() {
+    #TODO this blows up if you remove the last level of the tree...need to fix that
+    #TODO this also blows up from a blank for because of the default, need to fix that
+    print("ui.refresh.fromForm...")
     newtree <- Node$new(input$txtDecison)
-    #add criteria
-    hdp$criteria <- unlist(strsplit(input$txtCriteria, ","))
-    hdp$criteria <- sapply(hdp$criteria,trim)
-    for(v in hdp$criteria) {
-      trimV <- trim(v)
-      newtree$AddChildNode(child=Node$new(trimV))
+    #add criteria and trim
+    criteria <- sapply(unlist(strsplit(input$txtCriteria, ",")),trim)
+    for(v in criteria) {
+      newtree$AddChildNode(child=Node$new(v))
     }
-
-    #TODO this shouldn't look at the old tree...or should it?
-    #create features for each level in the tree
+    #add all the features we know of
     print("adding features")
     features <- lapply(2:hdp$tree$height, function(i){
-      print(paste0("---On Level: ",i))
-      #get the elementes at the current level of the tree
-      currentElements <- getNodeNamesAtLevel(hdp$tree, i)
-      # - get the textInput, add it to the tree
-      lapply(1:length(currentElements),function(j) {
-        nextLevelChildrenText <- unlist(strsplit(input[[paste0('textLevel_',i,"_",currentElements[[j]])]],","))
+      
+      newTreeElements <- getNodeNamesAtLevel(newtree, i) #get all of the new elements
+      oldTreeElements <- getNodeNamesAtLevel(hdp$tree, i) #get all of the old elements
+      print(paste0("at level: ",i," old: ", 
+                   unlist(oldTreeElements), " new: ",unlist(newTreeElements)))
+
+      #combine the 2 lists, return common elements - only look for texts in both
+      commonElements <- Reduce(intersect, list(newTreeElements,oldTreeElements))
+      print(paste0("common:",commonElements))
+      
+      lapply(1:length(commonElements),function(j) {
+        nextLevelChildrenText <- unlist(strsplit(input[[paste0('textLevel_',i,"_",commonElements[[j]])]],","))
         if(length(nextLevelChildrenText) > 0) {
           lapply(1:length(nextLevelChildrenText),function(k) {
-            FindNode(node=newtree,name = currentElements[[j]])$AddChildNode(child=Node$new(trim(nextLevelChildrenText[[k]])))
+            FindNode(node=newtree,name = commonElements[[j]])$AddChildNode(child=Node$new(trim(nextLevelChildrenText[[k]])))
           })
         }
       })
     })
-    print("------Final Tree")
-    print(newtree)
+      
     hdp$tree <- newtree
-    #update the expert evaluation
-    ui.evaluation.build()
+    ui.refresh.fromTree(newtree)
   }
   
+  #this should only be used when we get a new tree from the DB  
   ui.refresh.fromTree <- function(tree) {
-    #TODO rebuild the form from a tree from the DB
-    print("----Rebuilding Tree")
-    #start with the defintion 
-    newtree <- Node$new(input$txtDecison)
-    #add criteria
-    hdp$criteria <- unlist(strsplit(input$txtCriteria, ","))
-    hdp$criteria <- sapply(hdp$criteria,trim)
-    for(v in hdp$criteria) {
-      trimV <- trim(v)
-      newtree$AddChildNode(child=Node$new(trimV))
-    }
     
-    #TODO this shouldn't look at the old tree...or should it?
-    #create features for each level in the tree
-    print("adding features")
-    features <- lapply(2:hdp$tree$height, function(i){
-      print(paste0("---On Level: ",i))
-      #get the elementes at the current level of the tree
-      currentElements <- getNodeNamesAtLevel(hdp$tree, i)
-      # - get the textInput, add it to the tree
-      lapply(1:length(currentElements),function(j) {
-        nextLevelChildrenText <- unlist(strsplit(input[[paste0('textLevel_',i,"_",currentElements[[j]])]],","))
-        if(length(nextLevelChildrenText) > 0) {
-          lapply(1:length(nextLevelChildrenText),function(k) {
-            FindNode(node=newtree,name = currentElements[[j]])$AddChildNode(child=Node$new(trim(nextLevelChildrenText[[k]])))
-          })
-        }
+    updateTextInput(session, "txtDecison", value = toString(tree$name))
+    updateTextInput(session, "txtCriteria", value = toString(
+      lapply(1:length(tree$children), function(i){
+        paste(trim(tree$children[[i]]$name),sep = ",")
       })
-    })
-    print("------Final Tree")
-    print(newtree)
-    hdp$tree <- newtree
+    ))
+    ui.factors.build(tree)
+    
     #update the expert evaluation
-    ui.evaluation.build()
+    ui.evaluation.build(tree)
   }
   
   #update the factors
-  ui.initialFactors.build <- function(){
-    print("ui.initialFactors.build()")
+  ui.factors.build <- function(tree){
+    print("ui.factors.build()")
 
-        output$uiDynaFactors <- renderUI({
-      featureLevels <- lapply(2:hdp$tree$height, function(i) { #3 = first level of factors
-        ui.level.textInput.generate(i, hdp$tree)
+      output$uiDynaFactors <- renderUI({
+      featureLevels <- lapply(2:tree$height, function(i) { #3 = first level of factors
+        ui.level.textInput.generate(i, tree)
       })
       do.call(tabsetPanel,featureLevels)
     })
@@ -272,19 +236,22 @@ server <- function(input, output, session) {
     })
   })
   
-  ##################################################
-  # -> slider functions
-  ##################################################
-  ui.evaluation.build <- function() {
+##################################################
+# -> slider functions
+##################################################
+
+  ui.evaluation.build <- function(tree) {
 
     #first convert the tree to data frame for matrix operations
-    dfLevels <- ToDataFrameNetwork(hdp$tree, "level", "name")
+    dfLevels <- ToDataFrameNetwork(tree, "level", "name")
     
-    comparisonPanelNumber <- hdp$tree$height
-    if(length(hdp$alternatives > 0)) { comparisonPanelNumber <- comparisonPanelNumber + 1 }
+    comparisonPanelNumber <- tree$height + 1
+    print(paste0("alts agaion:",hdp$alternatives," len:",length(hdp$alternatives)," cNum:",comparisonPanelNumber))
+    #TODO why does this blow up????
+    #if(length(hdp$alternatives > 0)) { comparisonPanelNumber <- comparisonPanelNumber + 1 }
     output$uiEvaluateCriteria <- renderUI({
       sliders <- lapply(2:comparisonPanelNumber, function(i) {
-        ui.sliders.generate(i,dfLevels, hdp$tree, hdp$alternatives)
+        ui.sliders.generate(i,dfLevels, tree, hdp$alternatives)
       })
       do.call(tabsetPanel,sliders)
     })
@@ -320,16 +287,15 @@ server <- function(input, output, session) {
     })
   }
 
-  ##################################################
-  # END slider functions
-  ##################################################
+##################################################
+# END slider functions
+##################################################
   
     
 #####################################################
 # -> DB Functions
 #####################################################
 
-  #TODO I think this is a good candidate for creating a module...
   #Load models from DB into dynamic grid
   observeEvent(input$btnLoadModels, {
     #TODO this would be great to have "load my models" - input email and get them 
@@ -358,10 +324,6 @@ server <- function(input, output, session) {
       #print(selectedObjectId)
       mod <- loadModel(selectedObjectId)
       
-      #load the model name
-      hdp$currentModelName <- mod$modelName
-      updateTextInput(session, "txtModelName", value = hdp$currentModelName)
-      
       #turn the model back into a tree
       froms <- eval(parse(text = mod$model$from))
       tos <- eval(parse(text = mod$model$to))
@@ -370,15 +332,13 @@ server <- function(input, output, session) {
       goodDf <- data.frame(froms,tos,pathStrings)
       hdp$tree <- FromDataFrameNetwork(goodDf)
       
+      updateTextInput(session, "txtModelName", value = toString(hdp$currentModelName))
       #load the alternatives
       updateTextInput(session, "txtAlternatives", value = mod$alternatives)
       hdp$alternatives <- mod$alternatives
+      print(paste0("alts: ",hdp$alternatives))
       
-      #TODO set criteria and stuff...
-      
-      #TODO reload everything...
-      #tree.rebuild() 
-      
+      ui.refresh.fromTree(hdp$tree)
     }
   })
   
