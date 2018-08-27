@@ -191,12 +191,11 @@ server <- function(input, output, session) {
     })
   })
   
-  #Get the values from dynamic sliders and save them
-  #TODO need to add them as elements of the tree and save them
+  #Get the values from dynamic sliders, save them, run calculations
   observeEvent(input$btnSaveOpinion, {
     #### get the weights from the dynamic sliders
     #TODO maybe it would be better if this was reactive??
-    
+    #TODO 
     dfLevels <- ToDataFrameNetwork(hdp$tree, "level", "name")
     comparisonPanelNumber <- hdp$tree$height
     if(length(hdp$alternatives > 0)) { comparisonPanelNumber <- comparisonPanelNumber + 1 }
@@ -215,6 +214,9 @@ server <- function(input, output, session) {
           dfComparisons <- dfLevels[dfLevels$level == i,c("from","to","level","name")]
           matrixColumns <- dfComparisons$name
           matrix.buildFromComboFrames(matrixColumns,comboFrames)
+          #TODO based on the matrix calculate value for each element, add it 
+          # as a property of the tree?
+          #TODO add it to the JSON we need to save
         }
       }
       print("----pop Mat")
@@ -344,16 +346,10 @@ server <- function(input, output, session) {
   
   #once model is designed, save it to the DB
   observeEvent(input$btnSaveModel, {
-    #TODO maybe the best thing is to read the URL and generate the UI that way...
     dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString")
-    #print("Structure going in: ")
-    #print(str(dfTreeAsNetwork))
-    
     fullJson <- paste0('{ "modelName" : "',input$txtModelName,'","model":', toJSON(dfTreeAsNetwork),
                        ',"alternatives":',toJSON(hdp$alternatives),
                        '}')
-    #print(fullJson)
-    
     saveData(fullJson)
   })
   
