@@ -2,62 +2,80 @@
 # -> mongo stuff
 # function to get and save from the DB
 #################################################
-#for hosting?
-#https://daattali.com/shiny/persistent-data-storage/
-# use this for mongoDB: https://mlab.com/plans/pricing/
-# HDPM0ng0DB!
 
-options(mongodb = list(
-  "host" = "localhost:27017",
-  "username" = "dev",
-  "password" = "Password1"
-))
-databaseName <- "hdp"
 collectionName <- "models"
 
+dataUri <- "mongodb://hdpdb/hdp"
+
 saveData <- function(data) {
-  # Connect to the database
-  db <- mongo(collection = collectionName,
-              url = sprintf(
-                "mongodb://%s:%s@%s/%s",
-                options()$mongodb$username,
-                options()$mongodb$password,
-                options()$mongodb$host,
-                databaseName))
-  db$insert(data)
+  dbInsert <- tryCatch({
+    db <- mongo(collection = collectionName,
+                url = dataUri)
+    db$insert(data)
+  },
+  error = function(e) {
+    print("ERROR inserting record!")
+    print(e)
+  })
 }
 
 loadModel <- function(modelId) {
   # Connect to the database
-  db <- mongo(collection = collectionName,
-              url = sprintf(
-                "mongodb://%s:%s@%s/%s",
-                options()$mongodb$username,
-                options()$mongodb$password,
-                options()$mongodb$host,
-                databaseName))
-  # get by Object Id: https://jeroen.github.io/mongolite/query-data.html#select-by-id
-  data <- db$find(query = paste0('{"_id" : {"$oid":"',modelId,'"}}'))
-  data
+  model <- tryCatch({
+    db <- mongo(collection = collectionName,
+                url = dataUri)
+    
+    # get by Object Id: https://jeroen.github.io/mongolite/query-data.html#select-by-id
+    data <- db$find(query = paste0('{"_id" : {"$oid":"',modelId,'"}}'))
+    data
+  }, 
+  error=function(e) {
+    print(paste0("ERROR loading model!",modelId))
+    print(e)
+    #TODO this is going to blow up, still need to handle it
+    ""
+  })
+  model
 }
 
 #load up all the models ids and names for the list
 loadAllModels <- function() {
-  db <- mongo(collection = collectionName,
-              url = sprintf(
-                "mongodb://%s:%s@%s/%s",
-                options()$mongodb$username,
-                options()$mongodb$password,
-                options()$mongodb$host,
-                databaseName))
-  # Read all the entries
-  data <- db$find(
-    query = "{}",
-    fields = '{ "modelName" : true }'
-  )
-  data
+  allModels <- tryCatch({
+    db <- mongo(collection = collectionName,
+                url = dataUri)
+    
+    # Read all the entries
+    data <- db$find(
+      query = "{}",
+      fields = '{ "modelName" : true }'
+    )
+    data
+  }, error=function(e) {
+    print("ERROR loading all models")
+    print(e)
+    ""
+  })
+  allModels
 }
 
 #################################################
 # END mongo stuff
+# if you want to use authentication with accounts, use this below
+#  db <- mongo(collection = collectionName,
+#              url = sprintf(
+#                "mongodb://%s:%s@%s/%s",
+#                options()$mongodb$username,
+#                options()$mongodb$password,
+#                options()$mongodb$host,
+#                databaseName))
+# AND put this up top:
+#options(mongodb = list(
+#  "host" = "localhost:27017",
+#  "username" = "dev",
+#  "password" = "Password1"
+#))
+#databaseName <- "hdp"
+#
+# I wanted to get ENV variables working in Docker, not sure why they don't:
+#   #print(paste0("MONGO_URI:", Sys.getenv("MONGO_URI")))
 #################################################

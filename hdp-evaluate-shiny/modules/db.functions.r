@@ -2,10 +2,6 @@
 # -> mongo stuff
 # function to get and save from the DB
 #################################################
-#for hosting?
-#https://daattali.com/shiny/persistent-data-storage/
-# use this for mongoDB: https://mlab.com/plans/pricing/
-# HDPM0ng0DB!
 
 options(mongodb = list(
   "host" = "localhost:27017",
@@ -15,27 +11,19 @@ options(mongodb = list(
 databaseName <- "hdp"
 collectionName <- "models"
 
+dataUri <- "mongodb://hdpdb/hdp"
+
 saveData <- function(data) {
   # Connect to the database
   db <- mongo(collection = collectionName,
-              url = sprintf(
-                "mongodb://%s:%s@%s/%s",
-                options()$mongodb$username,
-                options()$mongodb$password,
-                options()$mongodb$host,
-                databaseName))
+              url = dataUri)
   db$insert(data)
 }
 
 loadModel <- function(modelId) {
   # Connect to the database
   db <- mongo(collection = collectionName,
-              url = sprintf(
-                "mongodb://%s:%s@%s/%s",
-                options()$mongodb$username,
-                options()$mongodb$password,
-                options()$mongodb$host,
-                databaseName))
+              url = dataUri)
   # get by Object Id: https://jeroen.github.io/mongolite/query-data.html#select-by-id
   data <- db$find(query = paste0('{"_id" : {"$oid":"',modelId,'"}}'))
   data
@@ -44,12 +32,7 @@ loadModel <- function(modelId) {
 #load up all the models ids and names for the list
 loadAllModels <- function() {
   db <- mongo(collection = collectionName,
-              url = sprintf(
-                "mongodb://%s:%s@%s/%s",
-                options()$mongodb$username,
-                options()$mongodb$password,
-                options()$mongodb$host,
-                databaseName))
+              url = dataUri)
   # Read all the entries
   data <- db$find(
     query = "{}",

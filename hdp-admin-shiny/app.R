@@ -58,7 +58,7 @@ ui <- fluidPage(
                  tableOutput("tblFeatureCombinations")
         ),
         tabPanel("Evaluation Form",
-                 h4("Compare each item against the other"),
+                 h4("This is the form your experts will fill out"),
                  fluidRow(
                    column(7, uiOutput("uiEvaluateCriteria")),
                    column(5, 
@@ -90,10 +90,10 @@ server <- function(input, output, session) {
   defaultTree <- Node$new("What to eat for breakfast")
   taste <- defaultTree$AddChild("Taste")
   speed <- defaultTree$AddChild("Speed")
-  salty <- taste$AddChild("Salty")
-  sweet <- taste$AddChild("Sweet")
-  fast <- speed$AddChild("Fast")
-  slow <- speed$AddChild("Slow")
+  #salty <- taste$AddChild("Salty")
+  #sweet <- taste$AddChild("Sweet")
+  #fast <- speed$AddChild("Fast")
+  #slow <- speed$AddChild("Slow")
   
   hdp$tree <- defaultTree
   hdp$currentModelName <- "Breakfast Chooser"
@@ -126,14 +126,16 @@ server <- function(input, output, session) {
       commonElements <- Reduce(intersect, list(newTreeElements,oldTreeElements))
       print(paste0("common:",commonElements))
       
-      lapply(1:length(commonElements),function(j) {
-        nextLevelChildrenText <- unlist(strsplit(input[[paste0('textLevel_',i,"_",commonElements[[j]])]],","))
-        if(length(nextLevelChildrenText) > 0) {
-          lapply(1:length(nextLevelChildrenText),function(k) {
-            FindNode(node=newtree,name = commonElements[[j]])$AddChildNode(child=Node$new(trim(nextLevelChildrenText[[k]])))
-          })
-        }
-      })
+      if(length(commonElements) > 0) {
+        lapply(1:length(commonElements),function(j) {
+          nextLevelChildrenText <- unlist(strsplit(input[[paste0('textLevel_',i,"_",commonElements[[j]])]],","))
+          if(length(nextLevelChildrenText) > 0) {
+            lapply(1:length(nextLevelChildrenText),function(k) {
+              FindNode(node=newtree,name = commonElements[[j]])$AddChildNode(child=Node$new(trim(nextLevelChildrenText[[k]])))
+            })
+          }
+        })
+      }
     })
       
     hdp$tree <- newtree
@@ -247,10 +249,9 @@ server <- function(input, output, session) {
     #first convert the tree to data frame for matrix operations
     dfLevels <- ToDataFrameNetwork(tree, "level", "name")
     
-    comparisonPanelNumber <- tree$height + 1
+    comparisonPanelNumber <- tree$height
     print(paste0("alts agaion:",hdp$alternatives," len:",length(hdp$alternatives)," cNum:",comparisonPanelNumber))
-    #TODO why does this blow up????
-    #if(length(hdp$alternatives > 0)) { comparisonPanelNumber <- comparisonPanelNumber + 1 }
+    if(length(hdp$alternatives > 0)) { comparisonPanelNumber <- comparisonPanelNumber + 1 }
     output$uiEvaluateCriteria <- renderUI({
       sliders <- lapply(2:comparisonPanelNumber, function(i) {
         ui.sliders.generate(i,dfLevels, tree, hdp$alternatives)
@@ -310,9 +311,7 @@ server <- function(input, output, session) {
       #print(modelData)
       hdp$loadedModels <- modelData
       output$dtMongoOutput <- renderDataTable({
-        
         datatable(modelData, list(mode = "single", target = "cell", selection = "single"))
-        
       }, escape = FALSE, server = FALSE
       )
     })
@@ -325,6 +324,7 @@ server <- function(input, output, session) {
       selectedObjectId <- hdp$loadedModels[[s,"_id"]] #get objectId based on selected index
       #print(selectedObjectId)
       mod <- loadModel(selectedObjectId)
+      print(mod)
       
       #turn the model back into a tree
       froms <- eval(parse(text = mod$model$from))
@@ -337,7 +337,7 @@ server <- function(input, output, session) {
       updateTextInput(session, "txtModelName", value = toString(hdp$currentModelName))
       #load the alternatives
       updateTextInput(session, "txtAlternatives", value = mod$alternatives)
-      hdp$alternatives <- mod$alternatives
+      hdp$alternatives <- eval(parse(text = mod$alternatives))
       print(paste0("alts: ",hdp$alternatives))
       
       ui.refresh.fromTree(hdp$tree)
@@ -356,7 +356,7 @@ server <- function(input, output, session) {
 #####################################################
 # End DB Functions
 #####################################################
-  
+  if (!interactive()) sink(stderr(), type = "output")
 }
 
 # Run the application 

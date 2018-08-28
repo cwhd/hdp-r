@@ -27,6 +27,8 @@ RUN wget --no-verbose https://download3.rstudio.org/ubuntu-14.04/x86_64/VERSION 
 EXPOSE 80
 EXPOSE 3838
 
+ENV MONGO_URI=mongodb://hdpdb/hdp
+
 COPY shiny-server.sh /usr/bin/shiny-server.sh
 COPY shiny-server.conf  /etc/shiny-server/shiny-server.conf
 COPY . /srv/shiny-server/
