@@ -59,3 +59,5 @@ matrix.calculate <- function(A) {
   #bOut <- print(xtable(B, align=rep("c", ncol(B)+1)), 
   #              floating=FALSE, tabular.environment="array", comment=FALSE, print.results=FALSE)
 }
+
+

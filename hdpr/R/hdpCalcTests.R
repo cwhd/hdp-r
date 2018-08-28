@@ -7,7 +7,7 @@ abLables <- list("A","B","C","D")
 dynaMatrix <- matrix(nrow = length(abLables), ncol = length(abLables))
 dimnames(dynaMatrix) = list(abLables,abLables)
 
-#dynaMatrix[abLables[1],abLables[2]] <- 
+#dynaMatrix[abLables[1],abLables[2]] <-
 
 #TODO figure out how to populate this autmagically
 df1 <- data.frame("A" = c(80),"B" = c(20))
@@ -37,8 +37,11 @@ A <- structure(c(NA,df1$B[1],df2$C[1],df3$D[1],
                       .Dimnames = list(LETTERS[1:4], LETTERS[1:4]))
 diag(A) <- 1
 
+#Matrix B
 B <- t(A) / A
 diag(B) <- 1
+
+#Normalization Matrix:
 B.norm <- sweep(B,2,colSums(B),`/`)
 
 nMeans <- rowMeans(B.norm)
@@ -47,7 +50,28 @@ nVar <- apply(B.norm,1,var)
 
 inconsistency <- sqrt(sum(nVar) * .25)
 
+#divide col1 by col2, col2 by col3, etc to create Matrix C
+C <- matrix(ncol = ncol(B)-1, nrow = nrow(B))
 
-########### New test stuff
+for(c in 1:ncol(tempM)) {
+  C[,c] <- B[,c] / B[,c+1]
+}
+
+cMeans <- colMeans(C)
+
+#final calculation
+
+matrix.final <- matrix(ncol = 2, nrow = nrow(B), dimnames = list(rev(abLables), list("Raw","Normalized")))
+#matrix.final[nrow(matrix.final),1] <- 1
+matrix.final[1,1] <- 1
+cMeans.reverse <- rev(cMeans)
+for(c in 2:nrow(matrix.final)) {
+  matrix.final[c, 1] <- matrix.final[c-1,1] * cMeans.reverse[c-1]
+}
+
+matrix.final.raw.sum <- sum(matrix.final[,1])
+matrix.final[,2] <- matrix.final[,1] / matrix.final.raw.sum
+
+should.be.one <- sum(matrix.final[,2])
 
 
