@@ -2,16 +2,15 @@
 # -> mongo stuff
 # function to get and save from the DB
 #################################################
-
-collectionName <- "models"
-
-dataUri <- "mongodb://hdpdb/hdp"
-
-saveData <- function(data) {
+saveData <- function(data, id) {
   dbInsert <- tryCatch({
-    db <- mongo(collection = collectionName,
-                url = dataUri)
-    db$insert(data)
+    db <- getDbConnection()
+    if(!is.null(id)) {
+      db$update(query = paste0('{ "_id" : {"$oid" : "',id,'"}}') , 
+                update = paste0('{ "$set" : ',data,'}'))
+    } else {
+      db$insert(data)
+    }
   },
   error = function(e) {
     print("ERROR inserting record!")
@@ -22,10 +21,7 @@ saveData <- function(data) {
 loadModel <- function(modelId) {
   # Connect to the database
   model <- tryCatch({
-    db <- mongo(collection = collectionName,
-                url = dataUri)
-    
-    # get by Object Id: https://jeroen.github.io/mongolite/query-data.html#select-by-id
+    db <- getDbConnection()
     data <- db$find(query = paste0('{"_id" : {"$oid":"',modelId,'"}}'))
     data
   }, 
@@ -41,9 +37,7 @@ loadModel <- function(modelId) {
 #load up all the models ids and names for the list
 loadAllModels <- function() {
   allModels <- tryCatch({
-    db <- mongo(collection = collectionName,
-                url = dataUri)
-    
+    db <- getDbConnection()
     # Read all the entries
     data <- db$find(
       query = "{}",
@@ -56,6 +50,16 @@ loadAllModels <- function() {
     ""
   })
   allModels
+}
+
+getDbConnection <- function() {
+  collectionName <- "models"
+  #local
+  dataUri <- "mongodb://localhost/hdp"
+  #for docker
+  #dataUri <- "mongodb://hdpdb/hdp"
+  db <- mongo(collection = collectionName,
+              url = dataUri)
 }
 
 #################################################

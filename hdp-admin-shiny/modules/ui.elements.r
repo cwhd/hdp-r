@@ -4,7 +4,7 @@
 
 #generate text inputs in a tab panel for a level of the tree
 ui.level.textInput.generate <- function(level, tree) {
-  print("ui.leveltextInput.generate")
+  #print("ui.leveltextInput.generate")
   nodesAtLevel <- getNodeNamesAtLevel(tree, level)
   
   textBoxes <- lapply(1:length(nodesAtLevel),function(i){   #for each node at the current level

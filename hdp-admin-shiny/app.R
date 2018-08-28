@@ -44,11 +44,13 @@ ui <- fluidPage(
                  wellPanel(
                    h3("Decision Tree"),
                    actionButton("btnSaveModel", "Save Model"),
-                   actionButton("btnRebuildTree", "Rebuild Tree From Form")
+                   actionButton("btnRebuildTree", "Rebuild Tree From Form"),
+                   actionButton("btnResetForm", "Reset Form"),
+                   uiOutput("uiExpertUrl")
                  ),
                  grVizOutput("xx"),
                  wellPanel(
-                   h3("uiDynaFactors"),
+                   h3("Alternatives"),
                    uiOutput("uiDynaAlternatives")
                  )
         ),
@@ -85,7 +87,8 @@ server <- function(input, output, session) {
   
   #reactive values used through the app
   hdp=reactiveValues(tree=NULL,criteria=NULL,factors=NULL,criteriaCombos=NULL,
-                     alternatives=NULL,loadedModels=NULL,currentModelName=NULL)
+                     alternatives=NULL,loadedModels=NULL,currentModelName=NULL,
+                     currentModelId=NULL)
 
   defaultTree <- Node$new("What to eat for breakfast")
   taste <- defaultTree$AddChild("Taste")
@@ -98,6 +101,13 @@ server <- function(input, output, session) {
   hdp$tree <- defaultTree
   hdp$currentModelName <- "Breakfast Chooser"
   
+  observeEvent(input$btnResetForm, {
+    hdp$tree <- defaultTree
+    hdp$currentModelName <- "Breakfast Chooser"
+    hdp$alternatives = c("eggs","waffles","pancakes","fruit")
+    #ui.refresh.fromTree(hdp$tree)    
+  })
+  
   observeEvent(input$btnRebuildTree, {
     ui.refresh.fromForm()
   })
@@ -105,7 +115,6 @@ server <- function(input, output, session) {
   #this will update everything base on whatever is on the form
   ui.refresh.fromForm <- function() {
     #TODO this blows up if you remove the last level of the tree...need to fix that
-    #TODO this also blows up from a blank for because of the default, need to fix that
     print("ui.refresh.fromForm...")
     newtree <- Node$new(input$txtDecison)
     #add criteria and trim
@@ -125,7 +134,7 @@ server <- function(input, output, session) {
       #combine the 2 lists, return common elements - only look for texts in both
       commonElements <- Reduce(intersect, list(newTreeElements,oldTreeElements))
       print(paste0("common:",commonElements))
-      
+      #TODO this needs to get fixed :|
       if(length(commonElements) > 0) {
         lapply(1:length(commonElements),function(j) {
           nextLevelChildrenText <- unlist(strsplit(input[[paste0('textLevel_',i,"_",commonElements[[j]])]],","))
@@ -139,12 +148,15 @@ server <- function(input, output, session) {
     })
       
     hdp$tree <- newtree
-    ui.refresh.fromTree(newtree)
+    #TODO alternatives should come from the form
+    alts <- unlist(strsplit(input$txtAlternatives, ","))
+    
+    ui.refresh.fromTree(newtree, alts)
   }
   
   #this should only be used when we get a new tree from the DB  
-  ui.refresh.fromTree <- function(tree) {
-    
+  ui.refresh.fromTree <- function(tree, alternatives) {
+    print("ui.refresh.fromtree")
     updateTextInput(session, "txtDecison", value = toString(tree$name))
     updateTextInput(session, "txtCriteria", value = toString(
       lapply(1:length(tree$children), function(i){
@@ -154,7 +166,7 @@ server <- function(input, output, session) {
     ui.factors.build(tree)
     
     #update the expert evaluation
-    ui.evaluation.build(tree)
+    ui.evaluation.build(tree, alternatives)
   }
   
   #update the factors
@@ -187,7 +199,7 @@ server <- function(input, output, session) {
   
   #observer to render the tree
   observe({
-    print("rendering gridViz")
+    print("rendering tree")
     output$xx=renderGrViz({
       grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(hdp$tree)),engine = "dot")
     })
@@ -195,12 +207,11 @@ server <- function(input, output, session) {
   
   #Get the values from dynamic sliders, save them, run calculations
   observeEvent(input$btnSaveOpinion, {
-    #### get the weights from the dynamic sliders
     #TODO maybe it would be better if this was reactive??
-    #TODO 
     dfLevels <- ToDataFrameNetwork(hdp$tree, "level", "name")
     comparisonPanelNumber <- hdp$tree$height
     if(length(hdp$alternatives > 0)) { comparisonPanelNumber <- comparisonPanelNumber + 1 }
+    
     #TODO this needs to roll everything up every level
     criteriaDfList <- lapply(2:comparisonPanelNumber, function(i) {
       combos <- treeLevel.combos.unique(i, dfLevels, hdp$tree, hdp$alternatives)
@@ -209,22 +220,28 @@ server <- function(input, output, session) {
       populatedMatrix <- {
         if(i == comparisonPanelNumber) {
           dfComparisons <- dfLevels[dfLevels$level == i-1,c("from","to","level","name")]
-          #matrixColumns <- c(dfComparisons$name,hdp$alternatives)
           matrixColumns <- dfComparisons$name
           matrix.alternativesVsFeatures(matrixColumns, hdp$alternatives, comboFrames)
+          
         } else {
           dfComparisons <- dfLevels[dfLevels$level == i,c("from","to","level","name")]
           matrixColumns <- dfComparisons$name
           matrix.buildFromComboFrames(matrixColumns,comboFrames)
+          
           #TODO based on the matrix calculate value for each element, add it 
           # as a property of the tree?
           #TODO add it to the JSON we need to save
         }
       }
-      print("----pop Mat")
+      #print("----pop Mat")
+      calculatedMatrix <- if(i == comparisonPanelNumber) {
+        matrix.factors.calculate(populatedMatrix)
+      } else {
+        matrix.calculate(populatedMatrix)
+      }
       print(populatedMatrix)
 
-      calculatedMatrix <- matrix.calculate(populatedMatrix)
+      #calculatedMatrix <- matrix.calculate(populatedMatrix)
     })
 
     print("---criteriaDfList")
@@ -244,17 +261,17 @@ server <- function(input, output, session) {
 # -> slider functions
 ##################################################
 
-  ui.evaluation.build <- function(tree) {
-
+  ui.evaluation.build <- function(tree, alternatives) {
+    print("ui.evaluation.build")
     #first convert the tree to data frame for matrix operations
     dfLevels <- ToDataFrameNetwork(tree, "level", "name")
     
     comparisonPanelNumber <- tree$height
-    print(paste0("alts agaion:",hdp$alternatives," len:",length(hdp$alternatives)," cNum:",comparisonPanelNumber))
-    if(length(hdp$alternatives > 0)) { comparisonPanelNumber <- comparisonPanelNumber + 1 }
+    #print(paste0("alts agaion:",alternatives," len:",length(alternatives)," cNum:",comparisonPanelNumber))
+    if(length(alternatives > 0)) { comparisonPanelNumber <- comparisonPanelNumber + 1 }
     output$uiEvaluateCriteria <- renderUI({
       sliders <- lapply(2:comparisonPanelNumber, function(i) {
-        ui.sliders.generate(i,dfLevels, tree, hdp$alternatives)
+        ui.sliders.generate(i,dfLevels, tree, alternatives)
       })
       do.call(tabsetPanel,sliders)
     })
@@ -305,10 +322,7 @@ server <- function(input, output, session) {
     #TODO - maybe enter a user pin -not super secure...?
     observeEvent(input$btnLoadModels, {
       print("Loading Models")
-      #uiDynaModels
       modelData <- loadAllModels()
-      #dtMongoOutput
-      #print(modelData)
       hdp$loadedModels <- modelData
       output$dtMongoOutput <- renderDataTable({
         datatable(modelData, list(mode = "single", target = "cell", selection = "single"))
@@ -322,10 +336,14 @@ server <- function(input, output, session) {
     s = input$dtMongoOutput_rows_selected
     if (length(s)) {
       selectedObjectId <- hdp$loadedModels[[s,"_id"]] #get objectId based on selected index
-      #print(selectedObjectId)
       mod <- loadModel(selectedObjectId)
-      print(mod)
       
+      #build the expert URL
+      hdp$currentModelId <- selectedObjectId
+      output$uiExpertUrl <- renderUI({
+        tags$a(href=paste0("http://www.whatever.com?modelId=",selectedObjectId),paste0("Expert URL: http://www.whatever.com?modelId=",selectedObjectId))
+      })
+
       #turn the model back into a tree
       froms <- eval(parse(text = mod$model$from))
       tos <- eval(parse(text = mod$model$to))
@@ -334,29 +352,42 @@ server <- function(input, output, session) {
       goodDf <- data.frame(froms,tos,pathStrings)
       hdp$tree <- FromDataFrameNetwork(goodDf)
       
+      hdp$currentModelName <- mod$modelName
+      
       updateTextInput(session, "txtModelName", value = toString(hdp$currentModelName))
       #load the alternatives
       updateTextInput(session, "txtAlternatives", value = mod$alternatives)
       hdp$alternatives <- eval(parse(text = mod$alternatives))
       print(paste0("alts: ",hdp$alternatives))
       
-      ui.refresh.fromTree(hdp$tree)
+      ui.refresh.fromTree(hdp$tree, hdp$alternatives)
     }
   })
   
   #once model is designed, save it to the DB
   observeEvent(input$btnSaveModel, {
     dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString")
+
     fullJson <- paste0('{ "modelName" : "',input$txtModelName,'","model":', toJSON(dfTreeAsNetwork),
                        ',"alternatives":',toJSON(hdp$alternatives),
                        '}')
-    saveData(fullJson)
+      
+    if(!is.null(hdp$currentModelId)) {
+      #fullJson <- paste0('{ "_id" : "',hdp$currentModelId,'",',fullJson)
+      saveData(fullJson, hdp$currentModelId)
+    } else {
+      #fullJson <- paste0('{ ', fullJson)
+      saveData(fullJson, NULL)
+    }
+    #print(fullJson)
+
   })
   
 #####################################################
 # End DB Functions
 #####################################################
-  if (!interactive()) sink(stderr(), type = "output")
+  #send logs to stderr for production - ugly hack
+  if (!interactive()) sink(stderr(), type = "output") 
 }
 
 # Run the application 

@@ -31,6 +31,17 @@ matrix.alternativesVsFeatures <- function(rnames,cnames,comboFrames) {
   A
 }
 
+matrix.factors.calculate <- function(A) {
+  B <- as.vector(t(A) / A)
+  #B.norm <- sweep(B,2,colSums(B),`/`)
+  #nMeans <- rowMeans(B.norm)
+  #nSd <- apply(B.norm,1,sd)
+  #nVar <- apply(B.norm,1,var)
+  #inconsistency <- sqrt(sum(nVar) * .25)
+  
+  B
+}
+
 matrix.calculate <- function(A) {
   #calculate everything else    
   B <- t(A) / A
