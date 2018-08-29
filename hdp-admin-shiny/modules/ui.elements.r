@@ -35,7 +35,7 @@ ui.sliders.generate <- function(level, dfLevels, tree, alternatives) {
              uiOutput(paste0("uiOutputValueA_",level,"_",i))
       ),
       column(5,
-             sliderInput(paste0("slider_",level,"_",i),"",value = 50, min = 0, max = 100)
+             sliderInput(paste0("slider_",level,"_",i),"",value = 50, min = 1, max = 99)
       ), 
       column(1,
              span(combos[i,2]),                 
@@ -48,3 +48,26 @@ ui.sliders.generate <- function(level, dfLevels, tree, alternatives) {
   taby
 }
 
+ui.sliders.generate.byNode <- function(node, alternatives) {
+  combos <- node.combos.unique(node, alternatives)
+  #TODO may need to make sure there are no spaces or special chars in the name
+  #build the critiera sliders for a level in the tree
+  sliders <- lapply(1:nrow(combos), function(i) {
+    fluidRow(
+      column(1, 
+             span(combos[i,1]),
+             uiOutput(paste0("uiOutputValueA_",node$name,"_",i))
+      ),
+      column(5,
+             sliderInput(paste0("slider_",node$name,"_",i),"",value = 50, min = 1, max = 99)
+      ), 
+      column(1,
+             span(combos[i,2]),                 
+             uiOutput(paste0("uiOutputValueB_",node$name,"_",i))
+      )
+    )
+  })
+  
+  taby <- tabPanel(paste0("Node: ",node$name), sliders)
+  taby
+}

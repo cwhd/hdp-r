@@ -166,7 +166,8 @@ server <- function(input, output, session) {
     ui.factors.build(tree)
     
     #update the expert evaluation
-    ui.evaluation.build(tree, alternatives)
+    #ui.evaluation.build(tree, alternatives)
+    ui.evaluation.build.byNode(tree, alternatives)
   }
   
   #update the factors
@@ -207,13 +208,12 @@ server <- function(input, output, session) {
   
   #Get the values from dynamic sliders, save them, run calculations
   observeEvent(input$btnSaveOpinion, {
-    #TODO maybe it would be better if this was reactive??
     dfLevels <- ToDataFrameNetwork(hdp$tree, "level", "name")
     comparisonPanelNumber <- hdp$tree$height
     if(length(hdp$alternatives > 0)) { comparisonPanelNumber <- comparisonPanelNumber + 1 }
-    
-    #TODO this needs to roll everything up every level
-    criteriaDfList <- lapply(2:comparisonPanelNumber, function(i) {
+
+    #1 - turn responses into matrixes    
+    normalizedValuesLevels <- lapply(2:comparisonPanelNumber, function(i) {
       combos <- treeLevel.combos.unique(i, dfLevels, hdp$tree, hdp$alternatives)
       comboFrames <- comboFrames.buildFromSliders(combos, i)
       
@@ -227,31 +227,47 @@ server <- function(input, output, session) {
           dfComparisons <- dfLevels[dfLevels$level == i,c("from","to","level","name")]
           matrixColumns <- dfComparisons$name
           matrix.buildFromComboFrames(matrixColumns,comboFrames)
-          
-          #TODO based on the matrix calculate value for each element, add it 
-          # as a property of the tree?
-          #TODO add it to the JSON we need to save
         }
       }
       #print("----pop Mat")
+      #print(populatedMatrix)
+      #2 - now that we have the matrix of comparisons, run some calculations
       calculatedMatrix <- if(i == comparisonPanelNumber) {
         matrix.factors.calculate(populatedMatrix)
       } else {
         matrix.calculate(populatedMatrix)
       }
-      print(populatedMatrix)
-
-      #calculatedMatrix <- matrix.calculate(populatedMatrix)
+      #print("----calc Mat")
+      #print(calculatedMatrix)
+      
     })
 
-    print("---criteriaDfList")
-    print(criteriaDfList)
+    print("---normalizedValuesLevels")
+    print(normalizedValuesLevels)
+    #match name of tree node to row name, add the normalized value to the node
+    lapply(1: length(normalizedValuesLevels), function(i) {
+      lapply(1:nrow(normalizedValuesLevels[[i]]), function(j) {
+        print(paste0("i:",i," of ",length(normalizedValuesLevels),"j:",j," of ",nrow(normalizedValuesLevels[[i]])))
+        #print(paste0("test1: ",rownames(normalizedValuesLevels[[i]])[j]))
+        #print(paste0("test3: ",normalizedValuesLevels[[i]][[j,2]]))
+        cNode <- FindNode(node=hdp$tree,name = rownames(normalizedValuesLevels[[i]])[j])
+        cNode$normalizedValue <- normalizedValuesLevels[[i]][[j,2]]
+        cNode$rawValue <- normalizedValuesLevels[[i]][[j,1]]
+      })
+    })
 
+    #for now output the results for each level
     output$uiCriteriaResults <- renderUI({
-      matrixOutputs <- lapply(1:length(criteriaDfList),function(i){
-        renderTable(
-          criteriaDfList[i]
+      matrixOutputs <- lapply(1:length(normalizedValuesLevels),function(i){
+        renderDataTable(
+          normalizedValuesLevels[[i]], options = list(
+            scrollX = FALSE,
+            scrollY = FALSE,
+            searching = FALSE,
+            paging = FALSE,
+            ordering = FALSE
           )
+        )
       })
       do.call(tagList,matrixOutputs)
     })
@@ -260,7 +276,24 @@ server <- function(input, output, session) {
 ##################################################
 # -> slider functions
 ##################################################
+  
+  ui.evaluation.build.byNode <- function(tree, alternatives) {
+    print("ui.evaluation.build.byNode")
+    nodes <- tree$Get('name')
+    
+    output$uiEvaluateCriteria <- renderUI({
+      sliders <- lapply(1:length(nodes), function(i) {
+        ui.sliders.generate.byNode(FindNode(node = tree, name = nodes[i]), alternatives)
+      })
+      do.call(tabsetPanel,sliders)
+    })
 
+    lapply(1:length(nodes), function(i) {
+      ui.nodesliders.observers.add(FindNode(node = tree, name = nodes[i]), alternatives)
+    })
+  }
+  
+  #old function
   ui.evaluation.build <- function(tree, alternatives) {
     print("ui.evaluation.build")
     #first convert the tree to data frame for matrix operations
@@ -291,6 +324,7 @@ server <- function(input, output, session) {
     criteriaDfList
   }
   
+  #old function
   ui.sliders.observers.add <- function(level, dfLevels) {
     #add observers to the critiera sliders
     combos <- treeLevel.combos.unique(level, dfLevels, hdp$tree, hdp$alternatives)
@@ -302,6 +336,21 @@ server <- function(input, output, session) {
         })
         output[[paste0("uiOutputValueB_",level,"_",i)]] <- renderUI({
           span(100 - input[[paste0("slider_",level,"_",i)]])
+        })
+      })
+    })
+  }
+  
+  ui.nodesliders.observers.add <- function(node, alternatives) {
+    combos <- node.combos.unique(node, alternatives)
+    
+    lapply(1:nrow(combos), function(i) {
+      observeEvent(input[[paste0("slider_",node$name,"_",i)]], {
+        output[[paste0("uiOutputValueA_",node$name,"_",i)]] <- renderUI({
+          span(input[[paste0("slider_",node$name,"_",i)]])
+        })
+        output[[paste0("uiOutputValueB_",node$name,"_",i)]] <- renderUI({
+          span(100 - input[[paste0("slider_",node$name,"_",i)]])
         })
       })
     })

@@ -35,3 +35,17 @@ treeLevel.combos.unique <- function(level, dfLevels, tree, alternatives) {
     combos    
   }
 }
+
+#get unique combinations for children of a node. If there are no children compare alternatives
+node.combos.unique <- function(node, alternatives) {
+  if(length(node$children) > 0) {
+    children <- lapply(1:length(node$children), function(i){
+      node$children[[i]]$name
+    })
+    combos <- expand.grid.unique(children, children)
+    combos    
+  } else {
+    combos <- expand.grid.unique(alternatives, alternatives)
+    combos    
+  }
+}

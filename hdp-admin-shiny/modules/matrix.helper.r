@@ -1,7 +1,7 @@
 #################################################
 # Matrix stuff, this will move to the HDP-R module
 #################################################
-
+#build the combo matrixes
 matrix.buildFromComboFrames <- function(names,comboFrames) {
   A <- matrix(, 
               nrow = length(names), 
@@ -9,7 +9,7 @@ matrix.buildFromComboFrames <- function(names,comboFrames) {
               dimnames = list(names,names))
   diag(A) <- 1
   for(df in comboFrames) {
-    print(paste0("--------colnames:",colnames(df)[1],"-",colnames(df)[2]))
+    #print(paste0("--------colnames:",colnames(df)[1],"-",colnames(df)[2]))
     A[colnames(df)[1],colnames(df)[2]] <- df[[1,1]]
     A[colnames(df)[2],colnames(df)[1]] <- df[[1,2]]
   }
@@ -23,8 +23,8 @@ matrix.alternativesVsFeatures <- function(rnames,cnames,comboFrames) {
               dimnames = list(rnames,cnames))
   print(A)
   for(df in comboFrames) {
-    print(paste0("--------colnames:",colnames(df)[1],"-",colnames(df)[2]))
-    print(paste0("A stuff:",A[colnames(df)[1],colnames(df)[2]]))
+    #print(paste0("--------colnames:",colnames(df)[1],"-",colnames(df)[2]))
+    #print(paste0("A stuff:",A[colnames(df)[1],colnames(df)[2]]))
     A[colnames(df)[1],colnames(df)[2]] <- df[[1,1]]
     #A[colnames(df)[2],colnames(df)[1]] <- df[[1,2]]
   }
@@ -53,11 +53,32 @@ matrix.calculate <- function(A) {
   inconsistency <- sqrt(sum(nVar) * .25)
   
   B.norm
+
+  #divide col1 by col2, col2 by col3, etc to create Matrix C
+  C <- matrix(ncol = ncol(B)-1, nrow = nrow(B))
   
-  #aOut <- print(xtable(A, align=rep("c", ncol(A)+1)), 
-  #              floating=FALSE, tabular.environment="array", comment=FALSE, print.results=FALSE)
-  #bOut <- print(xtable(B, align=rep("c", ncol(B)+1)), 
-  #              floating=FALSE, tabular.environment="array", comment=FALSE, print.results=FALSE)
+  for(c in 1:ncol(C)) {
+    C[,c] <- B[,c] / B[,c+1]
+  }
+  
+  cMeans <- colMeans(C)
+  
+  #final calculation
+  
+  matrix.final <- matrix(ncol = 2, nrow = nrow(B), dimnames = list(rev(colnames(B)), list("Raw","Normalized")))
+  #matrix.final[nrow(matrix.final),1] <- 1
+  matrix.final[1,1] <- 1
+  cMeans.reverse <- rev(cMeans)
+  for(c in 2:nrow(matrix.final)) {
+    matrix.final[c, 1] <- matrix.final[c-1,1] * cMeans.reverse[c-1]
+  }
+  
+  matrix.final.raw.sum <- sum(matrix.final[,1])
+  matrix.final[,2] <- matrix.final[,1] / matrix.final.raw.sum
+  
+  should.be.one <- sum(matrix.final[,2])
+  
+  matrix.final  
 }
 
 

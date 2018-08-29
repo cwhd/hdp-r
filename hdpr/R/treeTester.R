@@ -109,4 +109,39 @@ levelThree <- Prune(acme,pruneFun = function(x) x$level == 3)
 
 print(outsource$parent$name)
 print(acme$height)
+print(length(testAcme2$children))
+print(length(testAcme2))
+print(nrow(ToDataFrameNetwork(testAcme2)))
+
+print(testAcme2$Get('name'))
+
+nodes <- testAcme2$Get('name')
+
+nodeApply <- lapply(1:length(nodes), function(i) {
+  daNode <- FindNode(node = testAcme2, name = nodes[i])
+  #print(paste0("----nodes: ",length(daNode$children)))
+  #print(daNode)
+  #print(daNode$children)
+  if(length(daNode$children) > 0) {
+    chitlinNames <- for(chit in daNode$children) {
+      chit$name
+      #print(chit$name)
+    }
+   # print("---chitnames")
+    #print(chitlinNames)
+    cAgain <- lapply(1:length(daNode$children), function(j){
+      daNode$children[[j]]$name
+    })
+    print(cAgain)
+  }
+})
+
+chitlinNames <- lapply(1:length(nodeApply), function(i) {
+  nodeApply[[i]]$children$name
+})
+
+for(chit in testAcme2$children) {
+  print(chit$name)
+}
+
 

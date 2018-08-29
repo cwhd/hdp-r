@@ -12,7 +12,9 @@ services:
     depends_on:
     - db
     networks:
-    - hdpnet
+      hdpnet:
+        aliases:
+          - "hdp-eval"
   hdp-admin:
     image: hdp-admin
     container_name: hdp-admin
@@ -24,7 +26,9 @@ services:
     depends_on:
     - db
     networks:
-    - hdpnet
+      hdpnet:
+        aliases:
+          - "hdp-admin"
     volumes:
     - 'shiny_logs:/var/log/shiny-server'
   db:

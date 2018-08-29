@@ -1,6 +1,11 @@
 library(testthat)
 
 source("../modules/tree.helper.r",local=T)
+source("../modules/utilities.r",local=T)
+
+test_tha("WTF", {
+  expect_equal(1,1)
+})
 
 defaultTree <- Node$new("Choose Breakfast")
 taste <- defaultTree$AddChild("Taste")
@@ -24,4 +29,5 @@ test_that("Value is correct at level", {
   expect_equal(level3[[1]],"Salty")
   expect_equal(level3[[2]],"Sweet")
 })
+
 

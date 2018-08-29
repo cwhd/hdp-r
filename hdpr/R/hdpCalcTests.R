@@ -72,6 +72,9 @@ for(c in 2:nrow(matrix.final)) {
 matrix.final.raw.sum <- sum(matrix.final[,1])
 matrix.final[,2] <- matrix.final[,1] / matrix.final.raw.sum
 
+rowNameTest <- rownames(matrix.final)[3]
+print(rowNameTest)
+
 should.be.one <- sum(matrix.final[,2])
 
 
