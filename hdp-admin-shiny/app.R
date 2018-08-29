@@ -65,8 +65,9 @@ ui <- fluidPage(
                    column(7, uiOutput("uiEvaluateCriteria")),
                    column(5, 
                           textInput("txtExpertName","Your Name:"),
-                          actionButton("btnSaveOpinion", "Submit your opinions")
-                          )
+                          actionButton("btnSaveOpinion", "Submit your opinions"),
+                          actionButton("btnSaveAndCalculate", "Save and Calculate")
+                   )
                  )
                  
         ),
@@ -206,6 +207,65 @@ server <- function(input, output, session) {
     })
   })
   
+  observeEvent(input$btnSaveAndCalculate, {
+    #build out the matrix, do the caluclation
+    #add the results to the tree
+    #print them out on the page
+    nodes <- hdp$tree$Get('name')
+    
+    normalizedValuesByNode <- lapply(1:length(nodes), function(i) {
+      currentNode <- FindNode(node = hdp$tree, name = nodes[i])
+      combos <- node.combos.unique(currentNode, hdp$alternatives)
+      comboFrames <- comboFrames.buildFromNodeSliders(combos, currentNode)
+      #TODO duplicate code to clean up
+      matrixColumns <- if(length(currentNode$children) > 0) {
+        lapply(1:length(currentNode$children), function(i){
+          currentNode$children[[i]]$name
+        })
+      } else {
+        hdp$alternatives
+      }
+      populatedMatrix <- matrix.buildFromComboFrames(matrixColumns,comboFrames)
+      
+      #print("----pop Mat")
+      #print(populatedMatrix)
+      #2 - now that we have the matrix of comparisons, run the calculations
+      calculatedMatrix <- matrix.calculate(populatedMatrix)
+      #print("----calc Mat")
+      #print(calculatedMatrix)
+    })
+
+    print("---normalizedValuesByNode")
+    print(normalizedValuesByNode)
+    #match name of tree node to row name, add the normalized value to the node
+    lapply(1: length(normalizedValuesByNode), function(i) {
+      lapply(1:nrow(normalizedValuesByNode[[i]]), function(j) {
+        print(paste0("i:",i," of ",length(normalizedValuesByNode),"j:",j," of ",nrow(normalizedValuesByNode[[i]])))
+        #print(paste0("test1: ",rownames(normalizedValuesByNode[[i]])[j]))
+        #print(paste0("test3: ",normalizedValuesByNode[[i]][[j,2]]))
+        cNode <- FindNode(node=hdp$tree,name = rownames(normalizedValuesByNode[[i]])[j])
+        cNode$normalizedValue <- normalizedValuesByNode[[i]][[j,2]]
+        cNode$rawValue <- normalizedValuesByNode[[i]][[j,1]]
+      })
+    })
+    
+    #for now output the results for each level
+    output$uiCriteriaResults <- renderUI({
+      matrixOutputs <- lapply(1:length(normalizedValuesByNode),function(i){
+        renderDataTable(
+          normalizedValuesByNode[[i]], options = list(
+            scrollX = FALSE,
+            scrollY = FALSE,
+            searching = FALSE,
+            paging = FALSE,
+            ordering = FALSE
+          )
+        )
+      })
+      do.call(tagList,matrixOutputs)
+    })
+  })
+  
   #Get the values from dynamic sliders, save them, run calculations
   observeEvent(input$btnSaveOpinion, {
     dfLevels <- ToDataFrameNetwork(hdp$tree, "level", "name")
@@ -239,7 +299,6 @@ server <- function(input, output, session) {
       }
       #print("----calc Mat")
       #print(calculatedMatrix)
-      
     })
 
     print("---normalizedValuesLevels")
@@ -276,23 +335,7 @@ server <- function(input, output, session) {
 ##################################################
 # -> slider functions
 ##################################################
-  
-  ui.evaluation.build.byNode <- function(tree, alternatives) {
-    print("ui.evaluation.build.byNode")
-    nodes <- tree$Get('name')
-    
-    output$uiEvaluateCriteria <- renderUI({
-      sliders <- lapply(1:length(nodes), function(i) {
-        ui.sliders.generate.byNode(FindNode(node = tree, name = nodes[i]), alternatives)
-      })
-      do.call(tabsetPanel,sliders)
-    })
-
-    lapply(1:length(nodes), function(i) {
-      ui.nodesliders.observers.add(FindNode(node = tree, name = nodes[i]), alternatives)
-    })
-  }
-  
+  #old functions by level
   #old function
   ui.evaluation.build <- function(tree, alternatives) {
     print("ui.evaluation.build")
@@ -313,7 +356,7 @@ server <- function(input, output, session) {
       ui.sliders.observers.add(i,dfLevels)
     })
   }
-  
+  #old function
   comboFrames.buildFromSliders <- function(combos, level) {
     dfCriteria <- split(combos,rep(1:nrow(combos),1))
     criteriaDfList <- lapply(1:nrow(combos), function(i) {
@@ -323,7 +366,6 @@ server <- function(input, output, session) {
     })
     criteriaDfList
   }
-  
   #old function
   ui.sliders.observers.add <- function(level, dfLevels) {
     #add observers to the critiera sliders
@@ -338,6 +380,34 @@ server <- function(input, output, session) {
           span(100 - input[[paste0("slider_",level,"_",i)]])
         })
       })
+    })
+  }
+  
+  #######################################################
+  #new functions by nodes
+  comboFrames.buildFromNodeSliders <- function(combos, node) {
+    dfCriteria <- split(combos,rep(1:nrow(combos),1))
+    criteriaDfList <- lapply(1:nrow(combos), function(i) {
+      dfOut <- data.frame(streOne = c(input[[paste0("slider_",node$name,"_",i)]]), streTwo = c(100 - input[[paste0("slider_",node$name,"_",i)]]))
+      colnames(dfOut) <- c(dfCriteria[[i]][[1]], dfCriteria[[i]][[2]])
+      return(dfOut)
+    })
+    criteriaDfList
+  }
+  
+  ui.evaluation.build.byNode <- function(tree, alternatives) {
+    print("ui.evaluation.build.byNode")
+    nodes <- tree$Get('name')
+    
+    output$uiEvaluateCriteria <- renderUI({
+      sliders <- lapply(1:length(nodes), function(i) {
+        ui.sliders.generate.byNode(FindNode(node = tree, name = nodes[i]), alternatives)
+      })
+      do.call(tabsetPanel,sliders)
+    })
+    
+    lapply(1:length(nodes), function(i) {
+      ui.nodesliders.observers.add(FindNode(node = tree, name = nodes[i]), alternatives)
     })
   }
   

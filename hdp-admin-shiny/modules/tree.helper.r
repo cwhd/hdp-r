@@ -49,3 +49,9 @@ node.combos.unique <- function(node, alternatives) {
     combos    
   }
 }
+
+node.children.name <- function(node) {
+  children <- lapply(1:length(node$children), function(i){
+    node$children[[i]]$name
+  })
+}
