@@ -53,9 +53,6 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
-  #TODO get query string
-  #TODO load requested model from DB
-  #btnLoadFromQueryString
   observeEvent(input$btnLoadFromQueryString, {
     query <- getQueryString()
     queryText <- paste(names(query), query,
@@ -78,52 +75,56 @@ server <- function(input, output, session) {
     goodDf <- data.frame(froms,tos,pathStrings)
     tree <- FromDataFrameNetwork(goodDf)
     print(tree)
+    alternatives <- eval(parse(text = mod$alternatives))
     
-    ui.evaluation.build(tree, "")
+    ui.evaluation.build.byNode(tree, alternatives)
   })
-  
-  
   
   #############################################
   # TODO this is duplicate code...also in the admin tool
   #############################################
   
-  ui.evaluation.build <- function(tree, alternatives) {
+  #correct functions
+  comboFrames.buildFromNodeSliders <- function(combos, node) {
+    dfCriteria <- split(combos,rep(1:nrow(combos),1))
+    criteriaDfList <- lapply(1:nrow(combos), function(i) {
+      dfOut <- data.frame(streOne = c(input[[paste0("slider_",node$name,"_",i)]]), streTwo = c(100 - input[[paste0("slider_",node$name,"_",i)]]))
+      colnames(dfOut) <- c(dfCriteria[[i]][[1]], dfCriteria[[i]][[2]])
+      return(dfOut)
+    })
+    criteriaDfList
+  }
+  
+  ui.evaluation.build.byNode <- function(tree, alternatives) {
+    print("ui.evaluation.build.byNode")
+    nodes <- tree$Get('name')
     
-    #first convert the tree to data frame for matrix operations
-    dfLevels <- ToDataFrameNetwork(tree, "level", "name")
-    
-    comparisonPanelNumber <- tree$height + 1
-    #print(paste0("alts agaion:",hdp$alternatives," len:",length(hdp$alternatives)," cNum:",comparisonPanelNumber))
-    #TODO why does this blow up????
-    #if(length(hdp$alternatives > 0)) { comparisonPanelNumber <- comparisonPanelNumber + 1 }
     output$uiEvaluateCriteria <- renderUI({
-      sliders <- lapply(2:comparisonPanelNumber, function(i) {
-        ui.sliders.generate(i,dfLevels, tree, alternatives)
+      sliders <- lapply(1:length(nodes), function(i) {
+        ui.sliders.generate.byNode(FindNode(node = tree, name = nodes[i]), alternatives)
       })
       do.call(tabsetPanel,sliders)
     })
     
-    lapply(2:comparisonPanelNumber, function(i) {
-      ui.sliders.observers.add(i,dfLevels, tree, "")
+    lapply(1:length(nodes), function(i) {
+      ui.nodesliders.observers.add(FindNode(node = tree, name = nodes[i]), alternatives)
     })
   }
   
-  ui.sliders.observers.add <- function(level, dfLevels, tree, alternatives) {
-    #add observers to the critiera sliders
-    combos <- treeLevel.combos.unique(level, dfLevels, tree, alternatives)
+  ui.nodesliders.observers.add <- function(node, alternatives) {
+    combos <- node.combos.unique(node, alternatives)
     
     lapply(1:nrow(combos), function(i) {
-      observeEvent(input[[paste0("slider_",level,"_",i)]], {
-        output[[paste0("uiOutputValueA_",level,"_",i)]] <- renderUI({
-          span(input[[paste0("slider_",level,"_",i)]])
+      observeEvent(input[[paste0("slider_",node$name,"_",i)]], {
+        output[[paste0("uiOutputValueA_",node$name,"_",i)]] <- renderUI({
+          span(input[[paste0("slider_",node$name,"_",i)]])
         })
-        output[[paste0("uiOutputValueB_",level,"_",i)]] <- renderUI({
-          span(100 - input[[paste0("slider_",level,"_",i)]])
+        output[[paste0("uiOutputValueB_",node$name,"_",i)]] <- renderUI({
+          span(100 - input[[paste0("slider_",node$name,"_",i)]])
         })
       })
     })
-  }
+  }  
 }
 
 # Run the application 

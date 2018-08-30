@@ -55,9 +55,9 @@ loadAllModels <- function() {
 getDbConnection <- function() {
   collectionName <- "models"
   #local
-  dataUri <- "mongodb://localhost/hdp"
+  #dataUri <- "mongodb://localhost/hdp"
   #for docker
-  #dataUri <- "mongodb://hdpdb/hdp"
+  dataUri <- "mongodb://hdpdb/hdp"
   db <- mongo(collection = collectionName,
               url = dataUri)
 }

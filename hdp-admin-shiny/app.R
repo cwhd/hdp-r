@@ -33,7 +33,8 @@ ui <- fluidPage(
         uiOutput("uiDynaFactors")
       ),
       wellPanel(
-        textInput("txtAlternatives", "Alternatives", placeholder = "i.e.) alternative 1, 2, etc")
+        textInput("txtAlternatives", "Alternatives", placeholder = "i.e.) alternative 1, 2, etc"),
+        actionButton("btnUpdateAlternatives", "Update Alternatives")
       )
     ),
     
@@ -54,8 +55,8 @@ ui <- fluidPage(
                    uiOutput("uiDynaAlternatives")
                  )
         ),
-        tabPanel("Model Results",
-                 h4("Results wil be here..."),
+        tabPanel("Results",
+                 h4("Results will be here..."),
                  uiOutput("uiCriteriaResults"),
                  tableOutput("tblFeatureCombinations")
         ),
@@ -70,6 +71,13 @@ ui <- fluidPage(
                    )
                  )
                  
+        ),
+        tabPanel("Experts",
+          h4("Add or remove experts here"),
+          uiOutput("uiExperts"),
+          textInput("txtNewExpert", "New Expert", placeholder = "enter email here..."),
+          actionButton("btnUpdateExperts","Update Experts"),
+          actionButton("btnAddNewExpert","Add New")
         ),
         tabPanel("Previous Models",
                  actionButton("btnLoadModels", "Load all models"),
@@ -89,7 +97,7 @@ server <- function(input, output, session) {
   #reactive values used through the app
   hdp=reactiveValues(tree=NULL,criteria=NULL,factors=NULL,criteriaCombos=NULL,
                      alternatives=NULL,loadedModels=NULL,currentModelName=NULL,
-                     currentModelId=NULL)
+                     currentModelId=NULL, expertList = NULL)
 
   defaultTree <- Node$new("What to eat for breakfast")
   taste <- defaultTree$AddChild("Taste")
@@ -185,8 +193,49 @@ server <- function(input, output, session) {
     #TODO add a dynamic button to remove the level
   }
   
-  #observer to add alternatives
-  observe({
+  observeEvent(input$btnAddNewExpert, {
+    newExpert <- input$txtNewExpert
+    if(trim(newExpert) != "") {
+      print(paste0("not null!: ",newExpert))
+      hdp$experts <- c(hdp$experts,newExpert)
+    }
+    ui.experts.build(hdp$experts)
+  })
+  #when a user clicks the button, upload everything
+  observeEvent(input$btnUpdateExperts, {
+    newExpert <- input$txtNewExpert
+    if(length(hdp$experts) > 0) {
+      ui.experts.refresh.fromForm(hdp$experts)
+    }
+
+    #TODO save and load experts too
+  })
+  
+  #rebuild the experts in memory from the form
+  ui.experts.refresh.fromForm <- function(experts) {
+    expertsFromForm <- lapply(1:length(experts), function(i) {
+      input[[paste0("txtExpert_",i)]]
+    })
+    print("experts from form:")
+    print(expertsFromForm)
+    ui.experts.build(expertsFromForm)
+    hdp$experts <- expertsFromForm
+  }
+  
+  #build out the experts form
+  ui.experts.build <-function(experts) {
+    print("ui.experts.build")
+    output$uiExperts <- renderUI({
+      expertInputs <- lapply(1:length(experts), function(i) {
+        textInput(paste0("txtExpert_",i),"", value = experts[i])
+      })
+      do.call(shiny::tagList,expertInputs)
+    })
+    updateTextInput(session, "txtNewExpert", value = "", placeholder = "enter new email here...")
+  }
+  
+  #TODO make this a function that gets called when we update the tree...
+  observeEvent(input$btnUpdateAlternatives, {
     print("altSplitter")
     altSlplitter <- unlist(strsplit(input$txtAlternatives, ","))
     output$uiDynaAlternatives <- renderUI({
@@ -198,6 +247,20 @@ server <- function(input, output, session) {
       do.call(shiny::tagList,alternativeList)
     })
   })
+  
+  #observer to add alternatives
+  #observe({
+  #  print("altSplitter")
+  #  altSlplitter <- unlist(strsplit(input$txtAlternatives, ","))
+  #  output$uiDynaAlternatives <- renderUI({
+  #    alternativeList <- lapply(1:length(altSlplitter),function(i){
+  #      #TODO need to style this better...
+  #      span(altSlplitter[i],class="btn btn-success")
+  #    })
+  #    hdp$alternatives <- lapply(altSlplitter,trim)
+  #    do.call(shiny::tagList,alternativeList)
+  #  })
+  #})
   
   #observer to render the tree
   observe({
@@ -212,8 +275,12 @@ server <- function(input, output, session) {
     #add the results to the tree
     #print them out on the page
     nodes <- hdp$tree$Get('name')
+
+    #TODO if there are no alternatives...don't go there - use the function 
+    comparisonPanelNumber <- length(nodes)
+    if(length(hdp$alternatives == 0)) { comparisonPanelNumber <- comparisonPanelNumber - 1 }
     
-    normalizedValuesByNode <- lapply(1:length(nodes), function(i) {
+    normalizedValuesByNode <- lapply(1:comparisonPanelNumber, function(i) {
       currentNode <- FindNode(node = hdp$tree, name = nodes[i])
       combos <- node.combos.unique(currentNode, hdp$alternatives)
       comboFrames <- comboFrames.buildFromNodeSliders(combos, currentNode)
@@ -398,7 +465,9 @@ server <- function(input, output, session) {
   ui.evaluation.build.byNode <- function(tree, alternatives) {
     print("ui.evaluation.build.byNode")
     nodes <- tree$Get('name')
-    
+
+    #TODO this blows up if there is only one child leaf on a tree. Since that should never
+    # happen then maybe just put a warning instead of handling it...
     output$uiEvaluateCriteria <- renderUI({
       sliders <- lapply(1:length(nodes), function(i) {
         ui.sliders.generate.byNode(FindNode(node = tree, name = nodes[i]), alternatives)
@@ -413,17 +482,18 @@ server <- function(input, output, session) {
   
   ui.nodesliders.observers.add <- function(node, alternatives) {
     combos <- node.combos.unique(node, alternatives)
-    
-    lapply(1:nrow(combos), function(i) {
-      observeEvent(input[[paste0("slider_",node$name,"_",i)]], {
-        output[[paste0("uiOutputValueA_",node$name,"_",i)]] <- renderUI({
-          span(input[[paste0("slider_",node$name,"_",i)]])
-        })
-        output[[paste0("uiOutputValueB_",node$name,"_",i)]] <- renderUI({
-          span(100 - input[[paste0("slider_",node$name,"_",i)]])
+    if(length(combos) > 0) {
+      lapply(1:nrow(combos), function(i) {
+        observeEvent(input[[paste0("slider_",node$name,"_",i)]], {
+          output[[paste0("uiOutputValueA_",node$name,"_",i)]] <- renderUI({
+            span(input[[paste0("slider_",node$name,"_",i)]])
+          })
+          output[[paste0("uiOutputValueB_",node$name,"_",i)]] <- renderUI({
+            span(100 - input[[paste0("slider_",node$name,"_",i)]])
+          })
         })
       })
-    })
+    }
   }
 
 ##################################################
@@ -452,15 +522,17 @@ server <- function(input, output, session) {
   
   #when a row is selected from the grid, load it onto the page
   observe({
+    print("updating from db...")
     s = input$dtMongoOutput_rows_selected
     if (length(s)) {
       selectedObjectId <- hdp$loadedModels[[s,"_id"]] #get objectId based on selected index
       mod <- loadModel(selectedObjectId)
       
       #build the expert URL
+      #TODO this URL needs to be dynamuic
       hdp$currentModelId <- selectedObjectId
       output$uiExpertUrl <- renderUI({
-        tags$a(href=paste0("http://www.whatever.com?modelId=",selectedObjectId),paste0("Expert URL: http://www.whatever.com?modelId=",selectedObjectId))
+        tags$a(href=paste0("http://localhost:3838?modelId=",selectedObjectId),paste0("Expert URL: http://localhost:3838?modelId=",selectedObjectId))
       })
 
       #turn the model back into a tree

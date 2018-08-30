@@ -16,6 +16,20 @@ HDM allows researchers to define models consisting of a decision, critiera, fact
 
 Documentation is generated with [roxygen](https://cran.r-project.org/web/packages/roxygen2/vignettes/roxygen2.html) so you can ask R for help.  Also check out the examples folder for some working examples.
 
+## Deployment
+
+I used [docker](https://www.docker.com/) to make all the components deployable as a unit. Use the following commands to build the containers and get everything up and running:
+
+- From the hdp-evaluate-shiny directory: docker build . -t hdp-eval
+- From the hdp-admin-shiny directory: docker build . -t hdp-admin
+- From the root: docker-compose up
+
+MongoDB will be exposed inside the container cluster. 
+
+If you don't know that much about Docker here are some useful commands:
+
+- ssh into one of the nodes: docker exec -it hdp-admin bash
+
 ## Architecture
 
 This is made of 3 parts as defined in the docker-compose file:
