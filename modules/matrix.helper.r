@@ -16,6 +16,7 @@ matrix.buildFromComboFrames <- function(names,comboFrames) {
   A
 }
 
+#TODO I think this can get trashed
 matrix.alternativesVsFeatures <- function(rnames,cnames,comboFrames) {
   A <- matrix(, 
               nrow = length(rnames), 

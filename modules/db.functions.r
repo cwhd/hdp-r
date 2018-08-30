@@ -2,9 +2,28 @@
 # -> mongo stuff
 # function to get and save from the DB
 #################################################
-saveData <- function(data, id) {
+
+saveEvaluation <- function(data, expertId, modelId) {
   dbInsert <- tryCatch({
-    db <- getDbConnection()
+    db <-   getDbConnection("evaluations")
+
+    db$update(query = paste0('{ "expertId" : "',expertId,'", "modelId":"',modelId,'" }') , 
+              update = paste0('{ "$set" : ',data,'}'), 
+              upsert = TRUE)
+  },
+  error = function(e) {
+    print("ERROR inserting record!")
+    print(e)
+  })
+}
+
+saveData <- function(data, id, collection) {
+  dbInsert <- tryCatch({
+    db <- if(missing(collection)) {
+      getDbConnection()
+    } else {
+      getDbConnection(collection)
+    }
     if(!is.null(id)) {
       db$update(query = paste0('{ "_id" : {"$oid" : "',id,'"}}') , 
                 update = paste0('{ "$set" : ',data,'}'))
@@ -34,6 +53,21 @@ loadModel <- function(modelId) {
   model
 }
 
+loadResults <- function(modelId) {
+  model <- tryCatch({
+    db <- getDbConnection("evaluations")
+    data <- db$find(query = paste0('{"modelId" : "',modelId,'"}'))
+    data
+  }, 
+  error=function(e) {
+    print(paste0("ERROR loading model!",modelId))
+    print(e)
+    #TODO this is going to blow up, still need to handle it
+    ""
+  })
+  model
+}
+
 #load up all the models ids and names for the list
 loadAllModels <- function() {
   allModels <- tryCatch({
@@ -52,12 +86,16 @@ loadAllModels <- function() {
   allModels
 }
 
-getDbConnection <- function() {
-  collectionName <- "models"
+getDbConnection <- function(collection) {
+  collectionName <- if(missing(collection)) {
+    "models"
+  } else {
+    collection
+  }
   #local
-  #dataUri <- "mongodb://localhost/hdp"
+  dataUri <- "mongodb://localhost/hdp"
   #for docker
-  dataUri <- "mongodb://hdpdb/hdp"
+  #dataUri <- "mongodb://hdpdb/hdp"
   db <- mongo(collection = collectionName,
               url = dataUri)
 }

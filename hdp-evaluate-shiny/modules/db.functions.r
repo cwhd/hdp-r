@@ -2,6 +2,16 @@
 # -> mongo stuff
 # function to get and save from the DB
 #################################################
+
+saveExpertEvaluation <- function(data) {
+  dbInsert <- tryCatch({
+    db <- getDbConnection()
+    #TODO need model Id, expert identifier, opinion data
+  }, error = function(e) {
+    print("ERROR saving expert opinion!")
+  })
+}
+
 saveData <- function(data, id) {
   dbInsert <- tryCatch({
     db <- getDbConnection()

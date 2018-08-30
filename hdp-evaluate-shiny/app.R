@@ -5,10 +5,11 @@ library(shiny)
 library(data.tree)
 library(mongolite)  #use Mongo for storage 
 
-source("modules/db.functions.r",local=T)
-source("modules/ui.elements.r",local=T)
-source("modules/tree.helper.r",local=T)
-source("modules/utilities.r",local=T)
+source("../modules/db.functions.r",local=T)
+source("../modules/ui.elements.r",local=T)
+source("../modules/tree.helper.r",local=T)
+source("../modules/utilities.r",local=T)
+source("../modules/matrix.helper.r",local=T)
 
 ui <- fluidPage(
    
@@ -36,16 +37,12 @@ ui <- fluidPage(
       
       # Show a plot of the generated distribution
       mainPanel(
-        #TODO expert evaluation goes here...
-        #TODO get query string, load model from DB
-        #TODO populate evaluation form
-        #TODO button to save form
         h4("Compare each item against the other"),
         fluidRow(
           column(7, uiOutput("uiEvaluateCriteria")),
           column(5, 
                  textInput("txtExpertName","Your Name:"),
-                 actionButton("btnSaveOpinion", "Submit your opinions")
+                 actionButton("btnSaveAndCalculate", "Submit your evaluation")
           )
         )
       )
@@ -53,16 +50,21 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  
+  hdp=reactiveValues(tree=NULL, alternatives=NULL, evaluationId=NULL, 
+                     expertId=NULL, modelId=NULL)
+
+  #Load the form from the query string
   observeEvent(input$btnLoadFromQueryString, {
     query <- getQueryString()
     queryText <- paste(names(query), query,
                        sep = "=", collapse=", ")
     
-    print(queryText)
-
+    #print(queryText)
+    #variables from the query string
     requestedModelId <- query[["modelId"]]
-    print(requestedModelId)
-    
+    currentExpert <- query[["expertId"]]
+
     updateTextInput(session, "txtExpertName", value = requestedModelId)
     
     #TODO this should be in a try catch
@@ -74,17 +76,97 @@ server <- function(input, output, session) {
     
     goodDf <- data.frame(froms,tos,pathStrings)
     tree <- FromDataFrameNetwork(goodDf)
-    print(tree)
     alternatives <- eval(parse(text = mod$alternatives))
     
     ui.evaluation.build.byNode(tree, alternatives)
+
+    hdp$tree <- tree
+    hdp$alternatives <- alternatives
+    hdp$expertId <- currentExpert
+    hdp$modelId <- requestedModelId
+    
+    print("----start with:")
+    print(tree)
+    print(alternatives)
+    print(currentExpert)
+    print("-----------")
+
   })
+  
+
+  ################################################
+  # Get form values, calculate & save
+  ###############################################
+  
+  evaluation.nodes.calculate <- function(tree, alternatives) {
+    #build out the matrix, do the caluclation
+    nodes <- tree$Get('name')
+    
+    comparisonPanelNumber <- length(nodes)
+    if(length(hdp$alternatives == 0)) { comparisonPanelNumber <- comparisonPanelNumber - 1 }
+    
+    normalizedValuesByNode <- lapply(1:comparisonPanelNumber, function(i) {
+      currentNode <- FindNode(node = tree, name = nodes[i])
+      combos <- node.combos.unique(currentNode, alternatives)
+      comboFrames <- comboFrames.buildFromNodeSliders(combos, currentNode)
+      matrixColumns <- if(length(currentNode$children) > 0) {
+        lapply(1:length(currentNode$children), function(i){
+          currentNode$children[[i]]$name
+        })
+      } else {
+        alternatives
+      }
+      populatedMatrix <- matrix.buildFromComboFrames(matrixColumns,comboFrames)
+      
+      #2 - now that we have the matrix of comparisons, run the calculations
+      calculatedMatrix <- matrix.calculate(populatedMatrix)
+    })
+  }
+  
+  observeEvent(input$btnSaveAndCalculate, {
+    
+    normalizedValuesByNode <- evaluation.nodes.calculate(hdp$tree, hdp$alternatives)
+    
+    print("---normalizedValuesByNode")
+    print(normalizedValuesByNode)
+    #match name of tree node to row name, add the normalized value to the node
+    lapply(1: length(normalizedValuesByNode), function(i) {
+      
+      #this will update the tree with values, 
+      #TODO what to do with the alternative matrixes?
+      #TODO maybe I should just add the alternatives as nodes with prefixes, like 
+      lapply(1:nrow(normalizedValuesByNode[[i]]), function(j) {
+        #print(paste0("i:",i," of ",length(normalizedValuesByNode),"j:",j," of ",nrow(normalizedValuesByNode[[i]])))
+        #add to the tree
+        cNode <- FindNode(node=hdp$tree,name = rownames(normalizedValuesByNode[[i]])[j])
+        cNode$normalizedValue <- normalizedValuesByNode[[i]][[j,2]]
+        cNode$rawValue <- normalizedValuesByNode[[i]][[j,1]]
+      })
+    })
+    
+    #print("--updated tree")
+    #print(hdp$tree, "normalizedValue", "rawValue")
+    
+    #TODO save the results of the tree to the DB here
+    #build out the JSON expertId
+    
+    dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString","rawValue","normalizedValue")
+    
+    fullJson <- paste0('{ "modelId" : "',hdp$modelId,'",
+                        "expertId" : "',hdp$expertId,'",
+                       "results":', toJSON(dfTreeAsNetwork),
+                       ',"alternatives":',toJSON(hdp$alternatives),
+                       '}')
+
+    saveEvaluation(fullJson, hdp$expertId, hdp$modelId)
+  })
+  
   
   #############################################
   # TODO this is duplicate code...also in the admin tool
   #############################################
   
-  #correct functions
+  #build the combo frames from the sliders
   comboFrames.buildFromNodeSliders <- function(combos, node) {
     dfCriteria <- split(combos,rep(1:nrow(combos),1))
     criteriaDfList <- lapply(1:nrow(combos), function(i) {
@@ -94,7 +176,7 @@ server <- function(input, output, session) {
     })
     criteriaDfList
   }
-  
+  #with a tree and alternatives build out the evaluation form
   ui.evaluation.build.byNode <- function(tree, alternatives) {
     print("ui.evaluation.build.byNode")
     nodes <- tree$Get('name')
@@ -110,7 +192,7 @@ server <- function(input, output, session) {
       ui.nodesliders.observers.add(FindNode(node = tree, name = nodes[i]), alternatives)
     })
   }
-  
+  #add observers to the evaluation sliders
   ui.nodesliders.observers.add <- function(node, alternatives) {
     combos <- node.combos.unique(node, alternatives)
     
