@@ -3,10 +3,6 @@ library(testthat)
 source("../modules/tree.helper.r",local=T)
 source("../modules/utilities.r",local=T)
 
-test_tha("WTF", {
-  expect_equal(1,1)
-})
-
 defaultTree <- Node$new("Choose Breakfast")
 taste <- defaultTree$AddChild("Taste")
 speed <- defaultTree$AddChild("Speed")
