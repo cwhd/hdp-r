@@ -144,4 +144,23 @@ for(chit in testAcme2$children) {
   print(chit$name)
 }
 
+#build an example tree
+acme <- Node$new("Acme Inc.")
+accounting <- acme$AddChild("Accounting")
+software <- accounting$AddChild("New Software")
+standards <- accounting$AddChild("New Accounting Standards")
+research <- acme$AddChild("Research")
+newProductLine <- research$AddChild("New Product Line")
+newLabs <- research$AddChild("New Labs")
+it <- acme$AddChild("IT")
+outsource <- it$AddChild("Outsource")
+agile <- it$AddChild("Go agile")
+goToR <- it$AddChild("Switch to R")
+a1 <- goToR$AddChild("A Node")
+a2 <- goToR$AddChild("B Node")
+a3 <- goToR$AddChild("C Node")
+b1 <- agile$AddChild("A Node")
+b2 <- agile$AddChild("B Node")
+b3 <- agile$AddChild("C Node")
+
 

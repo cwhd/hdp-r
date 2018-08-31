@@ -3,7 +3,10 @@
 
 library(shiny)
 library(data.tree)
-library(mongolite)  #use Mongo for storage 
+library(mongolite)  #use Mongo for storage
+library(DiagrammeR) #display the tree
+library(DT)         #interface for selecting models from the DB
+library(rjson)      #gives us more flexibility for storing and loading models
 
 source("../modules/db.functions.r",local=T)
 source("../modules/ui.elements.r",local=T)
@@ -41,8 +44,8 @@ ui <- fluidPage(
         fluidRow(
           column(7, uiOutput("uiEvaluateCriteria")),
           column(5, 
-                 textInput("txtExpertName","Your Name:"),
-                 actionButton("btnSaveAndCalculate", "Submit your evaluation")
+                 actionButton("btnSaveAndCalculate", "Submit your evaluation"),
+                 grVizOutput("modelTree")
           )
         )
       )
@@ -53,7 +56,8 @@ server <- function(input, output, session) {
   
   hdp=reactiveValues(tree=NULL, alternatives=NULL, evaluationId=NULL, 
                      expertId=NULL, modelId=NULL)
-
+  
+  
   #Load the form from the query string
   observeEvent(input$btnLoadFromQueryString, {
     query <- getQueryString()
@@ -65,8 +69,6 @@ server <- function(input, output, session) {
     requestedModelId <- query[["modelId"]]
     currentExpert <- query[["expertId"]]
 
-    updateTextInput(session, "txtExpertName", value = requestedModelId)
-    
     #TODO this should be in a try catch
     mod <- loadModel(requestedModelId)
 
@@ -81,86 +83,85 @@ server <- function(input, output, session) {
     ui.evaluation.build.byNode(tree, alternatives)
 
     hdp$tree <- tree
-    hdp$alternatives <- alternatives
+    hdp$alternatives <- NULL# alternatives
     hdp$expertId <- currentExpert
     hdp$modelId <- requestedModelId
     
-    print("----start with:")
-    print(tree)
-    print(alternatives)
-    print(currentExpert)
-    print("-----------")
+    #add alternatives as nodes in the tree
+    bottomNodes <- getNodesAtLevel(tree, tree$height)
+    print(bottomNodes)
+    lapply(1:nrow(bottomNodes),function(i) {
+      lapply(1:length(alternatives), function(j) {
+        FindNode(node=tree,name = bottomNodes[[i,"name"]])$AddChildNode(child=Node$new(trim(alternatives[[j]])))
+      })
+    })
 
+    #print("----start with:")
+    #print(tree)
+    #print(alternatives)
+    #print(currentExpert)
+    print("-----------StRT")
+    
+    output$modelTree=renderGrViz({
+      grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(hdp$tree)),engine = "dot")
+    })
   })
-  
 
   ################################################
   # Get form values, calculate & save
   ###############################################
   
-  evaluation.nodes.calculate <- function(tree, alternatives) {
-    #build out the matrix, do the caluclation
-    nodes <- tree$Get('name')
-    
-    comparisonPanelNumber <- length(nodes)
-    if(length(hdp$alternatives == 0)) { comparisonPanelNumber <- comparisonPanelNumber - 1 }
-    
-    normalizedValuesByNode <- lapply(1:comparisonPanelNumber, function(i) {
-      currentNode <- FindNode(node = tree, name = nodes[i])
-      combos <- node.combos.unique(currentNode, alternatives)
-      comboFrames <- comboFrames.buildFromNodeSliders(combos, currentNode)
-      matrixColumns <- if(length(currentNode$children) > 0) {
-        lapply(1:length(currentNode$children), function(i){
-          currentNode$children[[i]]$name
-        })
-      } else {
-        alternatives
-      }
-      populatedMatrix <- matrix.buildFromComboFrames(matrixColumns,comboFrames)
-      
-      #2 - now that we have the matrix of comparisons, run the calculations
-      calculatedMatrix <- matrix.calculate(populatedMatrix)
+  #this is perfect for a unit test
+  #calculate weight for requested node
+  node.normalize <- function(currentNode) {
+    #get parent
+    parent <- currentNode$parent
+    #do calculations for parent node
+    #get unique combinations
+    combos <- node.combos.unique(parent, NULL)
+    #put the combinations into frames
+    comboFrames <- comboFrames.buildFromNodeSliders(combos, parent)
+    #build the comparison frames into a matrix
+    matrixColumns <- lapply(1:length(parent$children), function(i){
+      parent$children[[i]]$name
     })
+    populatedMatrix <- matrix.buildFromComboFrames(matrixColumns,comboFrames)
+    #now that we have the matrix of comparisons, run the calculations
+    calculatedMatrix <- matrix.calculate(populatedMatrix)
+    #return calculated values for this node    
+    return(calculatedMatrix[[currentNode$name,2]])
   }
   
+  #calculate the weighted value for each node
+  node.finalizeWeights <- function(node) {
+    parent.norm <- node$parent$norm
+    weight <- node$norm * parent.norm
+    #TODO maybe if weight is NA just move norm over to that column...
+    return(weight)
+  }
+  
+  #when the button is clicked, calculate and save everything  
   observeEvent(input$btnSaveAndCalculate, {
+    #run the calculations across nodes in the tree
+    hdp$tree$Do(function(node) {
+      node$norm <-  node.normalize(node)
+    }, filterFun = isNotRoot) 
+
+    hdp$tree$Do(function(node) {
+      node$weight <-  node.finalizeWeights(node)
+    }, filterFun = isNotRoot) 
     
-    normalizedValuesByNode <- evaluation.nodes.calculate(hdp$tree, hdp$alternatives)
+    print(hdp$tree, "norm", "weight")
     
-    print("---normalizedValuesByNode")
-    print(normalizedValuesByNode)
-    #match name of tree node to row name, add the normalized value to the node
-    lapply(1: length(normalizedValuesByNode), function(i) {
-      
-      #this will update the tree with values, 
-      #TODO what to do with the alternative matrixes?
-      #TODO maybe I should just add the alternatives as nodes with prefixes, like 
-      lapply(1:nrow(normalizedValuesByNode[[i]]), function(j) {
-        #print(paste0("i:",i," of ",length(normalizedValuesByNode),"j:",j," of ",nrow(normalizedValuesByNode[[i]])))
-        #add to the tree
-        cNode <- FindNode(node=hdp$tree,name = rownames(normalizedValuesByNode[[i]])[j])
-        cNode$normalizedValue <- normalizedValuesByNode[[i]][[j,2]]
-        cNode$rawValue <- normalizedValuesByNode[[i]][[j,1]]
-      })
-    })
-    
-    #print("--updated tree")
-    #print(hdp$tree, "normalizedValue", "rawValue")
-    
-    #TODO save the results of the tree to the DB here
-    #build out the JSON expertId
-    
-    dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString","rawValue","normalizedValue")
-    
+    #convert the tree to a data frame and save it to the DB
+    dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString","weight","norm")
     fullJson <- paste0('{ "modelId" : "',hdp$modelId,'",
                         "expertId" : "',hdp$expertId,'",
                        "results":', toJSON(dfTreeAsNetwork),
                        ',"alternatives":',toJSON(hdp$alternatives),
                        '}')
-
     saveEvaluation(fullJson, hdp$expertId, hdp$modelId)
   })
-  
   
   #############################################
   # TODO this is duplicate code...also in the admin tool
