@@ -17,6 +17,24 @@ saveEvaluation <- function(data, expertId, modelId) {
   })
 }
 
+#pass in all the experts as JSON with a modelID to update the DB
+saveExperts <- function(expertsJson, modelId) {
+  dbInsert <- tryCatch({
+    db <- getDbConnection()
+    print("-----saving experts")
+    print(paste0("modelId: ",modelId ))
+    print(paste0("experts: ",expertsJson))
+    db$update(query = paste0('{ "modelId":"',modelId,'" }') , 
+              update = paste0('{ "$set" : { "experts":',expertsJson,'}}'))
+    
+    
+  }, error = function(e) {
+    print(paste0("ERROR saving experts! ",e))
+  })
+  
+}
+
+#save all data from the admin app
 saveData <- function(data, id, collection) {
   dbInsert <- tryCatch({
     db <- if(missing(collection)) {
@@ -37,6 +55,7 @@ saveData <- function(data, id, collection) {
   })
 }
 
+#load up a model for the admin app
 loadModel <- function(modelId) {
   # Connect to the database
   model <- tryCatch({
@@ -53,11 +72,16 @@ loadModel <- function(modelId) {
   model
 }
 
-loadResults <- function(modelId) {
-  model <- tryCatch({
+loadResults <- function(modelId, expertId) {
+  evaluations <- tryCatch({
     db <- getDbConnection("evaluations")
-    data <- db$find(query = paste0('{"modelId" : "',modelId,'"}'))
-    data
+    if(missing(expertId)) {
+      data <- db$find(query = paste0('{"modelId" : "',modelId,'"}'))
+      data
+    } else {
+      data <- db$find(query = paste0('{"modelId" : "',modelId,'", "expertId":"',expertId,'"}'))
+      data
+    }
   }, 
   error=function(e) {
     print(paste0("ERROR loading model!",modelId))
@@ -65,7 +89,7 @@ loadResults <- function(modelId) {
     #TODO this is going to blow up, still need to handle it
     ""
   })
-  model
+  evaluations
 }
 
 #load up all the models ids and names for the list
@@ -85,6 +109,7 @@ loadAllModels <- function() {
   })
   allModels
 }
+
 
 getDbConnection <- function(collection) {
   collectionName <- if(missing(collection)) {

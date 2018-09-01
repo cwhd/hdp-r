@@ -38,6 +38,10 @@ This is made of 3 parts as defined in the docker-compose file:
 - hdp-eval: where experts can evaluate models
 - mongodb: I'm just using the default mongoDB container as a data store
 
+## For testing:
+
+http://127.0.0.1:7748/?modelId=5b85894efccdf91528004090&expertId=chris
+
 ## Previous work
 
 There is [a tool](http://research1.etm.pdx.edu/hdm2/) used for HDP/HDM at PSU currently, however it's old and clunky, doesn't scale, and the code has been lost in time. This project borrows some of the interface structure from that project.

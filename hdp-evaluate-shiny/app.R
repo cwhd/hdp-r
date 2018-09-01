@@ -1,5 +1,5 @@
 # HDP-evaluate-shiny
-# where experts evaluate HDM models
+# where experts evaluate HDM models...and your HDM dreams come true
 
 library(shiny)
 library(data.tree)
@@ -54,9 +54,13 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
+  #TODO load any saved values that we have for the expert -< loadResults(modelId, expertId)
+  # - note eval below..not sure if that will work...
+  #TODO maybe make the saving reactive?? 
+  #TODO be nicer in the interface
+  
   hdp=reactiveValues(tree=NULL, alternatives=NULL, evaluationId=NULL, 
                      expertId=NULL, modelId=NULL)
-  
   
   #Load the form from the query string
   observeEvent(input$btnLoadFromQueryString, {
@@ -64,13 +68,16 @@ server <- function(input, output, session) {
     queryText <- paste(names(query), query,
                        sep = "=", collapse=", ")
     
-    #print(queryText)
     #variables from the query string
     requestedModelId <- query[["modelId"]]
     currentExpert <- query[["expertId"]]
 
     #TODO this should be in a try catch
     mod <- loadModel(requestedModelId)
+    #TODO figure out what to do with eval...
+    eval <- loadResults(requestedModelId, currentExpert)
+    print("------Eval from DB: ")
+    print(eval)
 
     froms <- eval(parse(text = mod$model$from))
     tos <- eval(parse(text = mod$model$to))

@@ -1,4 +1,4 @@
-# HDP-R - Clean rebuild of the other version
+# HDP-R - Admin tool to build models 
 # A shiny based interface to collect data for HDP models
 
 library(shiny)
@@ -19,7 +19,7 @@ source("../modules/matrix.helper.r",local=T)
 ui <- fluidPage(
    
   # Application title
-  titlePanel("HDP Builder"),
+  titlePanel("HDM Builder"),
   
   sidebarLayout(
     sidebarPanel(
@@ -43,10 +43,10 @@ ui <- fluidPage(
       tabsetPanel(
         tabPanel("Model Designer",
                  wellPanel(
-                   h3("Decision Tree"),
+                   h4("Decision Tree"),
                    actionButton("btnSaveModel", "Save Model"),
                    actionButton("btnRebuildTree", "Rebuild Tree From Form"),
-                   actionButton("btnResetForm", "Reset Form"),
+                   actionButton("btnLoadExample", "Load Example"),
                    uiOutput("uiExpertUrl")
                  ),
                  grVizOutput("xx"),
@@ -55,11 +55,15 @@ ui <- fluidPage(
                    uiOutput("uiDynaAlternatives")
                  )
         ),
-        tabPanel("Results",
-                 h4("Expert Evaluations"),
-                 actionButton("btnLoadResults","Load Results"),
-                 dataTableOutput("tblResults"),
-                 uiOutput("uiCriteriaResults")
+        tabPanel("Experts",
+                 h4("Add or remove experts here"),
+                 p("After you've saved your model you can add some experts. Each 
+                   expert will have a specific URL where they will rate your model, 
+                   if you need to manually send a URL make sure to use the correct one."),
+                 uiOutput("uiExperts"),
+                 textInput("txtNewExpert", "New Expert", placeholder = "enter email here..."),
+                 actionButton("btnUpdateExperts","Update Experts"),
+                 actionButton("btnAddNewExpert","Add New")
         ),
         tabPanel("Evaluation Form",
                  h4("This is the form your experts will fill out"),
@@ -67,19 +71,38 @@ ui <- fluidPage(
                    here."),
                  uiOutput("uiEvaluateCriteria")
         ),
-        tabPanel("Experts",
-          h4("Add or remove experts here"),
-          uiOutput("uiExperts"),
-          textInput("txtNewExpert", "New Expert", placeholder = "enter email here..."),
-          actionButton("btnUpdateExperts","Update Experts"),
-          actionButton("btnAddNewExpert","Add New")
+        tabPanel("Results",
+                 h4("Expert Evaluations"),
+                 actionButton("btnLoadResults","Load Results"),
+                 dataTableOutput("tblResults"),
+                 uiOutput("uiCriteriaResults")
         ),
-        tabPanel("Previous Models",
+        tabPanel("Saved Models",
                  actionButton("btnLoadModels", "Load all models"),
                  h4("List of all previous models"),
                  uiOutput("uiDynaModels"),
                  verbatimTextOutput("modelSelectInfo"),
                  dataTableOutput(outputId = "dtMongoOutput")
+        ),
+        tabPanel("Instructions",
+                 h4("Welcome to the HDM Admin tool, here is how to use it."),
+                 tags$ol(
+                   tags$li("Design your model."),
+                   tags$li("Find some experts to help you evaluate the model."),
+                   tags$li("Send your experts an evaluation to weight your options."),
+                   tags$li("Use the results for your research.")
+                 ),
+                 h4("Model Designer"),
+                 p("Use it to design your model."),
+                 h4("Experts"),
+                 p("Experts evaluate your model, manage them in the experts tab."),
+                 h4("Evaluation Form"),
+                 p("Once you have designed a model the evaluation form is generated. This is
+             for you to see what your experts see, it won't actually evaluate anything."),
+                 h4("Results"),
+                 p("Once your model has been evaluated results will be here."),
+                 h4("Saved Models"),
+                 p("To load saved models.")
         )
       )
     )
@@ -93,23 +116,40 @@ server <- function(input, output, session) {
   hdp=reactiveValues(tree=NULL,criteria=NULL,factors=NULL,criteriaCombos=NULL,
                      alternatives=NULL,loadedModels=NULL,currentModelName=NULL,
                      currentModelId=NULL, expertList = NULL)
+  
+  #TODO this needs to come from a config or env variable
+  evalUrl <- "http://localhost:3838"
+  #TODO this is a bit of a hack, but these defaults make managing state easier
+  defaultTree <- Node$new("Hierarchical")
+  defaultNode1 <- defaultTree$AddChild("Decision")
+  defaultNode2 <- defaultTree$AddChild("Making")
 
-  defaultTree <- Node$new("What to eat for breakfast")
-  taste <- defaultTree$AddChild("Taste")
-  speed <- defaultTree$AddChild("Speed")
-  #salty <- taste$AddChild("Salty")
-  #sweet <- taste$AddChild("Sweet")
-  #fast <- speed$AddChild("Fast")
-  #slow <- speed$AddChild("Slow")
-  
   hdp$tree <- defaultTree
-  hdp$currentModelName <- "Breakfast Chooser"
+  #hdp$currentModelName <- "Breakfast Chooser"
   
-  observeEvent(input$btnResetForm, {
+  #load an example into the form for noobs
+  observeEvent(input$btnLoadExample, {
+    defaultTree <- Node$new("What to eat for breakfast")
+    taste <- defaultTree$AddChild("Taste")
+    speed <- defaultTree$AddChild("Speed")
+    salty <- taste$AddChild("Salty")
+    sweet <- taste$AddChild("Sweet")
+    fast <- speed$AddChild("Fast")
+    slow <- speed$AddChild("Slow")
+    
     hdp$tree <- defaultTree
     hdp$currentModelName <- "Breakfast Chooser"
     hdp$alternatives = c("eggs","waffles","pancakes","fruit")
-    #ui.refresh.fromTree(hdp$tree)    
+    ui.refresh.fromTree(hdp$tree, hdp$alternatives)    
+    ui.alternatives.update(hdp$alternatives)
+    updateTextInput(session, "txtModelName", value = toString(hdp$currentModelName))
+    updateTextInput(session, "txtAlternatives", value = hdp$alternatives)
+    
+    ui.tree.render(defaultTree)
+    #output$xx=renderGrViz({
+    #  grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(hdp$tree)),engine = "dot")
+    #})
+    
   })
   
   observeEvent(input$btnRebuildTree, {
@@ -126,9 +166,15 @@ server <- function(input, output, session) {
     for(v in criteria) {
       newtree$AddChildNode(child=Node$new(v))
     }
+    
+    knownHeight <- if(!is.null(hdp$tree$height)) {
+      hdp$tree$height
+    } else {
+      2
+    }
     #add all the features we know of
     print("adding features")
-    features <- lapply(2:hdp$tree$height, function(i){
+    features <- lapply(2:knownHeight, function(i){
       
       newTreeElements <- getNodeNamesAtLevel(newtree, i) #get all of the new elements
       oldTreeElements <- getNodeNamesAtLevel(hdp$tree, i) #get all of the old elements
@@ -152,6 +198,8 @@ server <- function(input, output, session) {
     })
       
     hdp$tree <- newtree
+    ui.tree.render(newtree)
+    
     #TODO alternatives should come from the form
     alts <- unlist(strsplit(input$txtAlternatives, ","))
     
@@ -188,6 +236,37 @@ server <- function(input, output, session) {
     #TODO add a dynamic button to remove the level
   }
   
+  #update alternatives
+  ui.alternatives.update <- function(alternatives) {
+    output$uiDynaAlternatives <- renderUI({
+      alternativeList <- lapply(1:length(alternatives),function(i){
+        #TODO need to style this better...
+        span(alternatives[i],class="btn btn-success")
+      })
+      hdp$alternatives <- lapply(alternatives,trim)
+      do.call(shiny::tagList,alternativeList)
+    })
+  }
+  
+  #manually update alternatives when a user changes them
+  observeEvent(input$btnUpdateAlternatives, {
+    print("altSplitter")
+    altSlplitter <- unlist(strsplit(input$txtAlternatives, ","))
+    ui.alternatives.update(altSlplitter)
+  })
+  
+  #render the tree on the model page
+  ui.tree.render <- function(tree) {
+    print("rendering tree")
+    output$xx=renderGrViz({
+      grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(tree)),engine = "dot")
+    })
+  }
+  
+  ###############################################################
+  # Functions for managing experts
+  ###############################################################
+  #TODO save experts here...
   observeEvent(input$btnAddNewExpert, {
     newExpert <- input$txtNewExpert
     if(trim(newExpert) != "") {
@@ -196,14 +275,22 @@ server <- function(input, output, session) {
     }
     ui.experts.build(hdp$experts)
   })
-  #when a user clicks the button, upload everything
+  #when a user clicks the button, update everything
   observeEvent(input$btnUpdateExperts, {
     newExpert <- input$txtNewExpert
     if(length(hdp$experts) > 0) {
       ui.experts.refresh.fromForm(hdp$experts)
     }
-
-    #TODO save and load experts too
+    
+    #TODO check for current model id, if it doesn't exist notify user
+    print("updating experts...")
+    #print(paste0("currentModId: ", hdp$currentModelId))
+    #print("experts:")
+    #print(toJSON(hdp$experts))
+    #saveExperts(toJSON(hdp$experts), hdp$currentModelId)
+    
+    saveEverything()
+    
   })
   
   #rebuild the experts in memory from the form
@@ -222,34 +309,15 @@ server <- function(input, output, session) {
     print("ui.experts.build")
     output$uiExperts <- renderUI({
       expertInputs <- lapply(1:length(experts), function(i) {
-        textInput(paste0("txtExpert_",i),"", value = experts[i])
+        tagList(
+          textInput(paste0("txtExpert_",i),"", value = experts[i]),
+          tags$a(href=paste0(evalUrl,"?modelId=",hdp$currentModelId,"&expertId=",experts[i]),paste0("Expert URL: ",evalUrl,"?modelId=",hdp$currentModelId,"&expertId=",experts[i]))
+        )
       })
       do.call(shiny::tagList,expertInputs)
     })
     updateTextInput(session, "txtNewExpert", value = "", placeholder = "enter new email here...")
   }
-  
-  #TODO make this a function that gets called when we update the tree...
-  observeEvent(input$btnUpdateAlternatives, {
-    print("altSplitter")
-    altSlplitter <- unlist(strsplit(input$txtAlternatives, ","))
-    output$uiDynaAlternatives <- renderUI({
-      alternativeList <- lapply(1:length(altSlplitter),function(i){
-        #TODO need to style this better...
-        span(altSlplitter[i],class="btn btn-success")
-      })
-      hdp$alternatives <- lapply(altSlplitter,trim)
-      do.call(shiny::tagList,alternativeList)
-    })
-  })
-  
-  #observer to render the tree
-  observe({
-    print("rendering tree")
-    output$xx=renderGrViz({
-      grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(hdp$tree)),engine = "dot")
-    })
-  })
   
   observeEvent(input$btnLoadResults, {
     print("loading results...")
@@ -406,10 +474,9 @@ server <- function(input, output, session) {
       mod <- loadModel(selectedObjectId)
       
       #build the expert URL
-      #TODO this URL needs to be dynamuic
       hdp$currentModelId <- selectedObjectId
       output$uiExpertUrl <- renderUI({
-        tags$a(href=paste0("http://localhost:3838?modelId=",selectedObjectId),paste0("Expert URL: http://localhost:3838?modelId=",selectedObjectId))
+        tags$a(href=paste0(evalUrl,"?modelId=",selectedObjectId),paste0("Expert URL: ",evalUrl,"?modelId=",selectedObjectId))
       })
 
       #turn the model back into a tree
@@ -426,30 +493,48 @@ server <- function(input, output, session) {
       #load the alternatives
       updateTextInput(session, "txtAlternatives", value = mod$alternatives)
       hdp$alternatives <- eval(parse(text = mod$alternatives))
-      print(paste0("alts: ",hdp$alternatives))
-      
+      #print(paste0("Loaded Alternatives: ",hdp$alternatives))
+      print(mod$experts)
+      if(!is.null(mod$experts)) {
+        #TODO obbect not found??? handle when there is only 1 expert :(:(:(:(
+        hdp$experts <- eval(parse(text = mod$experts))
+        ui.experts.build(hdp$experts)
+      } else {
+        output$uiExperts <- renderUI({})
+        hdp$experts <- NULL
+      }
+
       ui.refresh.fromTree(hdp$tree, hdp$alternatives)
+      ui.tree.render(hdp$tree)
     }
   })
   
   #once model is designed, save it to the DB
   observeEvent(input$btnSaveModel, {
+    saveEverything()
+  })
+  
+  saveEverything <- function() {
+    #cleanExperts <- lapply(1:length(hdp$experts), function (i) {
+    #  paste0("'",hdp$experts[i],"'")
+    #})
+    #print(cleanExperts)
+    
     dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString")
-
+    
     fullJson <- paste0('{ "modelName" : "',input$txtModelName,'","model":', toJSON(dfTreeAsNetwork),
                        ',"alternatives":',toJSON(hdp$alternatives),
+                       ',"experts":',toJSON(hdp$experts),
                        '}')
-      
+    
     if(!is.null(hdp$currentModelId)) {
       #fullJson <- paste0('{ "_id" : "',hdp$currentModelId,'",',fullJson)
       saveData(fullJson, hdp$currentModelId)
     } else {
       #fullJson <- paste0('{ ', fullJson)
       saveData(fullJson, NULL)
-    }
-    #print(fullJson)
-
-  })
+    }    
+  }
   
 #####################################################
 # End DB Functions
