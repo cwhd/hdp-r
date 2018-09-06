@@ -43,7 +43,7 @@ node.combos.unique <- function(node, alternatives) {
       node$children[[i]]$name
     })
     combos <- expand.grid.unique(children, children)
-    combos    
+    combos   
   } else {
     combos <- expand.grid.unique(alternatives, alternatives)
     combos    
@@ -54,4 +54,8 @@ node.children.name <- function(node) {
   children <- lapply(1:length(node$children), function(i){
     node$children[[i]]$name
   })
+}
+
+hack.tree.names <- function(node) {
+  node$name
 }

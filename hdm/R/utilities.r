@@ -18,15 +18,6 @@ expand.grid.unique <- function(x, y, include.equals=FALSE)
   do.call(rbind, lapply(seq_along(x), g))
 }
 
-#get all inputs on the page, not sure if I need this
-AllInputs <- reactive({
-  x <- reactiveValuesToList(input)
-  data.frame(
-    names = names(x),
-    values = unlist(x, use.names = FALSE)
-  )
-})
-
 #ugh, this is a hack!!!
 childrenOrNothing <- function(currentNode) {
   if(length(currentNode$children) > 0) {

@@ -8,12 +8,13 @@ library(mongolite)  #use Mongo for storage
 library(DiagrammeR) #display the tree
 library(DT)         #interface for selecting models from the DB
 library(rjson)      #gives us more flexibility for storing and loading models
+library(hdpr)
 
-source("../modules/db.functions.r",local=T)
-source("../modules/ui.elements.r",local=T)
-source("../modules/tree.helper.r",local=T)
-source("../modules/utilities.r",local=T)
-source("../modules/matrix.helper.r",local=T)
+#source("../modules/db.functions.r",local=T)
+#source("../modules/ui.elements.r",local=T)
+#source("../modules/tree.helper.r",local=T)
+#source("../modules/utilities.r",local=T)
+#source("../modules/matrix.helper.r",local=T)
 
 ui <- fluidPage(
    

@@ -1,7 +1,5 @@
-library(testthat)
-
-source("../modules/tree.helper.r",local=T)
-source("../modules/utilities.r",local=T)
+context("hdm tree helper")
+library("data.tree")
 
 defaultTree <- Node$new("Choose Breakfast")
 taste <- defaultTree$AddChild("Taste")

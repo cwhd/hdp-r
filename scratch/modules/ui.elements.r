@@ -52,7 +52,9 @@ ui.sliders.generate.byNode <- function(node, alternatives) {
   combos <- node.combos.unique(node, alternatives)
   #TODO may need to make sure there are no spaces or special chars in the name
   #build the critiera sliders for a level in the tree
-  
+  #if(length(combos) > 0) {
+  #  
+  #}
   sliders <- lapply(1:nrow(combos), function(i) {
     fluidRow(
       column(1, 

@@ -2,9 +2,46 @@
 # -> mongo stuff
 # function to get and save from the DB
 #################################################
-saveData <- function(data, id) {
+
+saveEvaluation <- function(data, expertId, modelId) {
+  dbInsert <- tryCatch({
+    db <-   getDbConnection("evaluations")
+
+    db$update(query = paste0('{ "expertId" : "',expertId,'", "modelId":"',modelId,'" }') , 
+              update = paste0('{ "$set" : ',data,'}'), 
+              upsert = TRUE)
+  },
+  error = function(e) {
+    print("ERROR inserting record!")
+    print(e)
+  })
+}
+
+#pass in all the experts as JSON with a modelID to update the DB
+saveExperts <- function(expertsJson, modelId) {
   dbInsert <- tryCatch({
     db <- getDbConnection()
+    print("-----saving experts")
+    print(paste0("modelId: ",modelId ))
+    print(paste0("experts: ",expertsJson))
+    db$update(query = paste0('{ "modelId":"',modelId,'" }') , 
+              update = paste0('{ "$set" : { "experts":',expertsJson,'}}'))
+    
+    
+  }, error = function(e) {
+    print(paste0("ERROR saving experts! ",e))
+  })
+  
+}
+
+#save all data from the admin app
+saveData <- function(data, id, collection) {
+  dbInsert <- tryCatch({
+    db <- if(missing(collection)) {
+      getDbConnection()
+    } else {
+      getDbConnection(collection)
+    }
     if(!is.null(id)) {
       db$update(query = paste0('{ "_id" : {"$oid" : "',id,'"}}') , 
                 update = paste0('{ "$set" : ',data,'}'))
@@ -18,6 +55,7 @@ saveData <- function(data, id) {
   })
 }
 
+#load up a model for the admin app
 loadModel <- function(modelId) {
   # Connect to the database
   model <- tryCatch({
@@ -32,6 +70,41 @@ loadModel <- function(modelId) {
     ""
   })
   model
+}
+
+loadResults <- function(modelId, expertId) {
+  evaluations <- tryCatch({
+    db <- getDbConnection("evaluations")
+    if(missing(expertId)) {
+      data <- db$find(query = paste0('{"modelId" : "',modelId,'"}'))
+      data
+    } else {
+      data <- db$find(query = paste0('{"modelId" : "',modelId,'", "expertId":"',expertId,'"}'))
+      data
+    }
+  }, 
+  error=function(e) {
+    print(paste0("ERROR loading model!",modelId))
+    print(e)
+    #TODO this is going to blow up, still need to handle it
+    ""
+  })
+  evaluations
+}
+
+loadResultsIterator <- function(modelId) {
+  evaluations <- tryCatch({
+    db <- getDbConnection("evaluations")
+    data <- db$iterate(query = paste0('{"modelId" : "',modelId,'"}'))
+    data
+  }, 
+  error=function(e) {
+    print(paste0("ERROR loading model!",modelId))
+    print(e)
+    #TODO this is going to blow up, still need to handle it
+    ""
+  })
+  evaluations
 }
 
 #load up all the models ids and names for the list
@@ -52,8 +125,13 @@ loadAllModels <- function() {
   allModels
 }
 
-getDbConnection <- function() {
-  collectionName <- "models"
+
+getDbConnection <- function(collection) {
+  collectionName <- if(missing(collection)) {
+    "models"
+  } else {
+    collection
+  }
   #local
   dataUri <- "mongodb://localhost/hdp"
   #for docker

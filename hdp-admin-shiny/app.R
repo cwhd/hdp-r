@@ -9,12 +9,13 @@ library(rjson)      #gives us more flexibility for storing and loading models
 library(DT)         #interface for selecting models from the DB
 library(xtable)
 library(plyr)
+library(hdpr)
 
-source("../modules/utilities.r",local=T)
-source("../modules/db.functions.r",local=T)
-source("../modules/tree.helper.r",local=T)
-source("../modules/ui.elements.r",local=T)
-source("../modules/matrix.helper.r",local=T)
+#source("../modules/utilities.r",local=T)
+#source("../modules/db.functions.r",local=T)
+#source("../modules/tree.helper.r",local=T)
+#source("../modules/ui.elements.r",local=T)
+#source("../modules/matrix.helper.r",local=T)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -147,10 +148,6 @@ server <- function(input, output, session) {
     updateTextInput(session, "txtAlternatives", value = hdp$alternatives)
     
     ui.tree.render(defaultTree)
-    #output$xx=renderGrViz({
-    #  grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(hdp$tree)),engine = "dot")
-    #})
-    
   })
   
   observeEvent(input$btnRebuildTree, {
@@ -372,8 +369,7 @@ server <- function(input, output, session) {
 
         #TODO this should be the expert version of the tree...
         nodeNamesHack <- hdp$tree$Get(hack.tree.names)
-        nodeTitle <- h3("Something") #h3(paste0("Evaluations for ",node$name))
-        
+
         comboTableList <- lapply(1:length(nodeNamesHack), function(j) {
           comboFrameList <- evaluations$comboFrames[[nodeNamesHack[j]]]
           renderDataTable({
@@ -394,10 +390,7 @@ server <- function(input, output, session) {
             )
           })
         })
-        #print(nodeList)
-        comboTableList <- c(nodeTitle, nodeList)
-        
-        taby <- tabPanel(hdp$experts[i], nodeList) 
+        taby <- tabPanel(hdp$experts[i], comboTableList) 
         taby
       })
       do.call(tabsetPanel,expertComboFrameTabs)
