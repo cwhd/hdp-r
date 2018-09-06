@@ -8,6 +8,7 @@ library(mongolite)  #use Mongo for storage
 library(rjson)      #gives us more flexibility for storing and loading models
 library(DT)         #interface for selecting models from the DB
 library(xtable)
+library(plyr)
 
 source("../modules/utilities.r",local=T)
 source("../modules/db.functions.r",local=T)
@@ -75,7 +76,7 @@ ui <- fluidPage(
                  h4("Expert Evaluations"),
                  actionButton("btnLoadResults","Load Results"),
                  dataTableOutput("tblResults"),
-                 uiOutput("uiCriteriaResults")
+                 uiOutput("uiIndividualExperts")
         ),
         tabPanel("Saved Models",
                  actionButton("btnLoadModels", "Load all models"),
@@ -266,7 +267,7 @@ server <- function(input, output, session) {
   ###############################################################
   # Functions for managing experts
   ###############################################################
-  #TODO save experts here...
+
   observeEvent(input$btnAddNewExpert, {
     newExpert <- input$txtNewExpert
     if(trim(newExpert) != "") {
@@ -284,13 +285,8 @@ server <- function(input, output, session) {
     
     #TODO check for current model id, if it doesn't exist notify user
     print("updating experts...")
-    #print(paste0("currentModId: ", hdp$currentModelId))
-    #print("experts:")
-    #print(toJSON(hdp$experts))
-    #saveExperts(toJSON(hdp$experts), hdp$currentModelId)
-    
+
     saveEverything()
-    
   })
   
   #rebuild the experts in memory from the form
@@ -319,23 +315,107 @@ server <- function(input, output, session) {
     updateTextInput(session, "txtNewExpert", value = "", placeholder = "enter new email here...")
   }
   
+  #load expert results
+  #TODO this should really only have to run once, then save the stuff and load it later
   observeEvent(input$btnLoadResults, {
     print("loading results...")
-    evaluations <- loadResults(hdp$currentModelId)
     
-    #turn the model back into a tree
-    froms <- eval(parse(text = evaluations$results$from))
-    tos <- eval(parse(text = evaluations$results$to))
-    pathStrings <- eval(parse(text = evaluations$results$pathString))
-    rawValues <- eval(parse(text = evaluations$results$rawValue))
-    normalizedValues <- eval(parse(text = evaluations$results$normalizedValue))
+    expertEvalDfList <- lapply(1:length(hdp$experts), function(i) {
+      evaluations <- loadResults(hdp$currentModelId, hdp$experts[i])
+      
+      froms <- eval(parse(text = evaluations$results$from))
+      tos <- eval(parse(text = evaluations$results$to))
+      pathStrings <- eval(parse(text = evaluations$results$pathString))
+      evalWeights <- eval(parse(text = evaluations$results$weight))
+      evalNorms <- eval(parse(text = evaluations$results$norm))
+      sliderValues <- eval(parse(text = evaluations$results$sliderValues))
+      
+      goodDf <- data.frame(froms,tos,pathStrings, evalWeights, evalNorms, sliderValues)
+      print("evalnorms?")
+      #print(goodDf$evalNorms)
+      goodDf
+    })
+    expertFlatResults <- lapply(1:length(hdp$experts), function(i) { 
+      evaluations <- loadResults(hdp$currentModelId, hdp$experts[i])
+      
+      nodes <- eval(parse(text = evaluations$flatResults$pathString))
+      evalWeights <- eval(parse(text = evaluations$flatResults$weight))
+      evalNorms <- eval(parse(text = evaluations$flatResults$norm))
+      sliderValues <- eval(parse(text = evaluations$flatResults$sliderValues))
+      
+      #goodDf <- data.frame(hdp$experts[i], nodes, evalWeights, evalNorms, sliderValues)
+      goodDf <- data.frame(nodes, evalWeights)
+      colnames(goodDf) <- c("Criteria")
+      goodDf
+    })
+    #build the matrix for the final results    
+    flippedExpertResults <- lapply(1:length(expertFlatResults), function(i) {
+      f <- t(expertFlatResults[[i]][-1])
+      colnames(f) <- expertFlatResults[[i]][,1]
+      rownames(f) <- hdp$experts[i]
+      f
+    })
+    
+    resultsTable <- do.call(rbind,flippedExpertResults)
 
-    goodDf <- data.frame(froms,tos,pathStrings,rawValues,normalizedValues)
-    print("---good df")
-    print(goodDf)
+    #This will combine and average norms from experts - not sure if I need this?
+    print("---------Combining and averaging expert opinions")
+    normsDf <- lapply(1:length(expertEvalDfList), function(i) {
+      expertEvalDfList[[i]]$evalNorms
+    })
+    
+    #TODO build out tabs for the experts here...
+    output$uiIndividualExperts <- renderUI({
+      expertComboFrameTabs <- lapply(1:length(hdp$experts), function(i) { 
+        evaluations <- loadResults(hdp$currentModelId, hdp$experts[i])
+        print(paste0("-----combo frames for ",hdp$experts[i]))
+
+        #TODO this should be the expert version of the tree...
+        nodeNamesHack <- hdp$tree$Get(hack.tree.names)
+        nodeTitle <- h3("Something") #h3(paste0("Evaluations for ",node$name))
+        
+        comboTableList <- lapply(1:length(nodeNamesHack), function(j) {
+          comboFrameList <- evaluations$comboFrames[[nodeNamesHack[j]]]
+          renderDataTable({
+            datatable(
+              as.data.frame(comboFrameList),
+              caption = nodeNamesHack[j],
+              width = 100, 
+              rownames = FALSE,
+              options = list(
+                scrollX = FALSE,
+                scrollY = FALSE,
+                searching = FALSE,
+                paging = FALSE,
+                ordering = FALSE,
+                info = FALSE,
+                autoWidth = FALSE
+              )
+            )
+          })
+        })
+        #print(nodeList)
+        comboTableList <- c(nodeTitle, nodeList)
+        
+        taby <- tabPanel(hdp$experts[i], nodeList) 
+        taby
+      })
+      do.call(tabsetPanel,expertComboFrameTabs)
+    })
+
+    #print("----normsDf")
+    normsDf <- as.data.frame(normsDf)
+    #print(normsDf)
+    #average the values across all the experts
+    dfMeanWeights <- rowMeans(normsDf)
+    #print(dfMeanWeights)
+    #put the values in a nice data frame with labels    
+    treeWithMeans <- data.frame(expertEvalDfList[[1]]$froms, dfMeanWeights)
+    
+    # TODO still need other vals like inconsistency or whaever
     
     output$tblResults <- renderDataTable(
-      goodDf, options = list(
+      resultsTable, options = list(
         scrollX = FALSE,
         scrollY = FALSE,
         searching = FALSE,

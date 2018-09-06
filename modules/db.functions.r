@@ -92,6 +92,21 @@ loadResults <- function(modelId, expertId) {
   evaluations
 }
 
+loadResultsIterator <- function(modelId) {
+  evaluations <- tryCatch({
+    db <- getDbConnection("evaluations")
+    data <- db$iterate(query = paste0('{"modelId" : "',modelId,'"}'))
+    data
+  }, 
+  error=function(e) {
+    print(paste0("ERROR loading model!",modelId))
+    print(e)
+    #TODO this is going to blow up, still need to handle it
+    ""
+  })
+  evaluations
+}
+
 #load up all the models ids and names for the list
 loadAllModels <- function() {
   allModels <- tryCatch({
