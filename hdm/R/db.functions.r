@@ -1,14 +1,13 @@
 #################################################
-# -> mongo stuff
-# function to get and save from the DB
+# -> Helper functions to get and save stuff from the DB
 #################################################
 
 saveEvaluation <- function(data, expertId, modelId) {
   dbInsert <- tryCatch({
     db <-   getDbConnection("evaluations")
 
-    db$update(query = paste0('{ "expertId" : "',expertId,'", "modelId":"',modelId,'" }') , 
-              update = paste0('{ "$set" : ',data,'}'), 
+    db$update(query = paste0('{ "expertId" : "',expertId,'", "modelId":"',modelId,'" }') ,
+              update = paste0('{ "$set" : ',data,'}'),
               upsert = TRUE)
   },
   error = function(e) {
@@ -24,14 +23,14 @@ saveExperts <- function(expertsJson, modelId) {
     print("-----saving experts")
     print(paste0("modelId: ",modelId ))
     print(paste0("experts: ",expertsJson))
-    db$update(query = paste0('{ "modelId":"',modelId,'" }') , 
+    db$update(query = paste0('{ "modelId":"',modelId,'" }') ,
               update = paste0('{ "$set" : { "experts":',expertsJson,'}}'))
-    
-    
+
+
   }, error = function(e) {
     print(paste0("ERROR saving experts! ",e))
   })
-  
+
 }
 
 #save all data from the admin app
@@ -43,7 +42,7 @@ saveData <- function(data, id, collection) {
       getDbConnection(collection)
     }
     if(!is.null(id)) {
-      db$update(query = paste0('{ "_id" : {"$oid" : "',id,'"}}') , 
+      db$update(query = paste0('{ "_id" : {"$oid" : "',id,'"}}') ,
                 update = paste0('{ "$set" : ',data,'}'))
     } else {
       db$insert(data)
@@ -62,7 +61,7 @@ loadModel <- function(modelId) {
     db <- getDbConnection()
     data <- db$find(query = paste0('{"_id" : {"$oid":"',modelId,'"}}'))
     data
-  }, 
+  },
   error=function(e) {
     print(paste0("ERROR loading model!",modelId))
     print(e)
@@ -82,7 +81,7 @@ loadResults <- function(modelId, expertId) {
       data <- db$find(query = paste0('{"modelId" : "',modelId,'", "expertId":"',expertId,'"}'))
       data
     }
-  }, 
+  },
   error=function(e) {
     print(paste0("ERROR loading model!",modelId))
     print(e)
@@ -97,7 +96,7 @@ loadResultsIterator <- function(modelId) {
     db <- getDbConnection("evaluations")
     data <- db$iterate(query = paste0('{"modelId" : "',modelId,'"}'))
     data
-  }, 
+  },
   error=function(e) {
     print(paste0("ERROR loading model!",modelId))
     print(e)
@@ -138,6 +137,15 @@ getDbConnection <- function(collection) {
   #dataUri <- "mongodb://hdpdb/hdp"
   db <- mongo(collection = collectionName,
               url = dataUri)
+}
+
+rebuildDataFrameForTree <- function(mod) {
+  froms <- eval(parse(text = mod$model$from))
+  tos <- eval(parse(text = mod$model$to))
+  pathStrings <- eval(parse(text = mod$model$pathString))
+
+  goodDf <- data.frame(froms,tos,pathStrings)
+
 }
 
 #################################################

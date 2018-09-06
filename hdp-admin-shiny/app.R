@@ -11,12 +11,6 @@ library(xtable)
 library(plyr)
 library(hdpr)
 
-#source("../modules/utilities.r",local=T)
-#source("../modules/db.functions.r",local=T)
-#source("../modules/tree.helper.r",local=T)
-#source("../modules/ui.elements.r",local=T)
-#source("../modules/matrix.helper.r",local=T)
-
 # Define UI for application that draws a histogram
 ui <- fluidPage(
    
@@ -121,23 +115,16 @@ server <- function(input, output, session) {
   
   #TODO this needs to come from a config or env variable
   evalUrl <- "http://localhost:3838"
-  #TODO this is a bit of a hack, but these defaults make managing state easier
+  #This is a bit of a hack, but these defaults make managing state easier
   defaultTree <- Node$new("Hierarchical")
   defaultNode1 <- defaultTree$AddChild("Decision")
   defaultNode2 <- defaultTree$AddChild("Making")
 
   hdp$tree <- defaultTree
-  #hdp$currentModelName <- "Breakfast Chooser"
-  
-  #load an example into the form for noobs
+
+  #click the "Load Example" button, get an example
   observeEvent(input$btnLoadExample, {
-    defaultTree <- Node$new("What to eat for breakfast")
-    taste <- defaultTree$AddChild("Taste")
-    speed <- defaultTree$AddChild("Speed")
-    salty <- taste$AddChild("Salty")
-    sweet <- taste$AddChild("Sweet")
-    fast <- speed$AddChild("Fast")
-    slow <- speed$AddChild("Slow")
+    defaultTree <- GetExampleTree()
     
     hdp$tree <- defaultTree
     hdp$currentModelName <- "Breakfast Chooser"
@@ -150,11 +137,12 @@ server <- function(input, output, session) {
     ui.tree.render(defaultTree)
   })
   
+  #someone updated the form and clicked "Rebuild Tree From Form", so do it!
   observeEvent(input$btnRebuildTree, {
     ui.refresh.fromForm()
   })
     
-  #this will update everything base on whatever is on the form
+  #this will update everything based on whatever is on the form
   ui.refresh.fromForm <- function() {
     #TODO this blows up if you remove the last level of the tree...need to fix that
     print("ui.refresh.fromForm...")
@@ -181,8 +169,6 @@ server <- function(input, output, session) {
 
       #combine the 2 lists, return common elements - only look for texts in both
       commonElements <- Reduce(intersect, list(newTreeElements,oldTreeElements))
-      print(paste0("common:",commonElements))
-      #TODO this needs to get fixed :|
       if(length(commonElements) > 0) {
         lapply(1:length(commonElements),function(j) {
           nextLevelChildrenText <- unlist(strsplit(input[[paste0('textLevel_',i,"_",commonElements[[j]])]],","))
@@ -197,10 +183,7 @@ server <- function(input, output, session) {
       
     hdp$tree <- newtree
     ui.tree.render(newtree)
-    
-    #TODO alternatives should come from the form
     alts <- unlist(strsplit(input$txtAlternatives, ","))
-    
     ui.refresh.fromTree(newtree, alts)
   }
   
@@ -213,25 +196,21 @@ server <- function(input, output, session) {
         paste(trim(tree$children[[i]]$name),sep = ",")
       })
     ))
-    ui.factors.build(tree)
-    
-    #update the expert evaluation
-    #ui.evaluation.build(tree, alternatives)
+    #update the textInputs for the factors
+    ui.factors.textInput.build(tree)
+    #update the expert evaluation example form
     ui.evaluation.build.byNode(tree, alternatives)
   }
   
   #update the factors
-  ui.factors.build <- function(tree){
-    print("ui.factors.build()")
-
+  ui.factors.textInput.build <- function(tree){
+    print("ui.factors.textInput.build()")
       output$uiDynaFactors <- renderUI({
       featureLevels <- lapply(2:tree$height, function(i) { #3 = first level of factors
         ui.level.textInput.generate(i, tree)
       })
       do.call(tabsetPanel,featureLevels)
     })
-    
-    #TODO add a dynamic button to remove the level
   }
   
   #update alternatives
@@ -248,14 +227,12 @@ server <- function(input, output, session) {
   
   #manually update alternatives when a user changes them
   observeEvent(input$btnUpdateAlternatives, {
-    print("altSplitter")
     altSlplitter <- unlist(strsplit(input$txtAlternatives, ","))
     ui.alternatives.update(altSlplitter)
   })
   
   #render the tree on the model page
   ui.tree.render <- function(tree) {
-    print("rendering tree")
     output$xx=renderGrViz({
       grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(tree)),engine = "dot")
     })
@@ -317,21 +294,6 @@ server <- function(input, output, session) {
   observeEvent(input$btnLoadResults, {
     print("loading results...")
     
-    expertEvalDfList <- lapply(1:length(hdp$experts), function(i) {
-      evaluations <- loadResults(hdp$currentModelId, hdp$experts[i])
-      
-      froms <- eval(parse(text = evaluations$results$from))
-      tos <- eval(parse(text = evaluations$results$to))
-      pathStrings <- eval(parse(text = evaluations$results$pathString))
-      evalWeights <- eval(parse(text = evaluations$results$weight))
-      evalNorms <- eval(parse(text = evaluations$results$norm))
-      sliderValues <- eval(parse(text = evaluations$results$sliderValues))
-      
-      goodDf <- data.frame(froms,tos,pathStrings, evalWeights, evalNorms, sliderValues)
-      print("evalnorms?")
-      #print(goodDf$evalNorms)
-      goodDf
-    })
     expertFlatResults <- lapply(1:length(hdp$experts), function(i) { 
       evaluations <- loadResults(hdp$currentModelId, hdp$experts[i])
       
@@ -339,8 +301,8 @@ server <- function(input, output, session) {
       evalWeights <- eval(parse(text = evaluations$flatResults$weight))
       evalNorms <- eval(parse(text = evaluations$flatResults$norm))
       sliderValues <- eval(parse(text = evaluations$flatResults$sliderValues))
+      #TODO add means and stuff to the end of this data table...
       
-      #goodDf <- data.frame(hdp$experts[i], nodes, evalWeights, evalNorms, sliderValues)
       goodDf <- data.frame(nodes, evalWeights)
       colnames(goodDf) <- c("Criteria")
       goodDf
@@ -355,17 +317,10 @@ server <- function(input, output, session) {
     
     resultsTable <- do.call(rbind,flippedExpertResults)
 
-    #This will combine and average norms from experts - not sure if I need this?
-    print("---------Combining and averaging expert opinions")
-    normsDf <- lapply(1:length(expertEvalDfList), function(i) {
-      expertEvalDfList[[i]]$evalNorms
-    })
-    
-    #TODO build out tabs for the experts here...
+    #build out the tabs for the experts
     output$uiIndividualExperts <- renderUI({
       expertComboFrameTabs <- lapply(1:length(hdp$experts), function(i) { 
         evaluations <- loadResults(hdp$currentModelId, hdp$experts[i])
-        print(paste0("-----combo frames for ",hdp$experts[i]))
 
         #TODO this should be the expert version of the tree...
         nodeNamesHack <- hdp$tree$Get(hack.tree.names)
@@ -395,81 +350,22 @@ server <- function(input, output, session) {
       })
       do.call(tabsetPanel,expertComboFrameTabs)
     })
-
-    #print("----normsDf")
-    normsDf <- as.data.frame(normsDf)
-    #print(normsDf)
-    #average the values across all the experts
-    dfMeanWeights <- rowMeans(normsDf)
-    #print(dfMeanWeights)
-    #put the values in a nice data frame with labels    
-    treeWithMeans <- data.frame(expertEvalDfList[[1]]$froms, dfMeanWeights)
     
     # TODO still need other vals like inconsistency or whaever
     
     output$tblResults <- renderDataTable(
-      resultsTable, options = list(
+      datatable(resultsTable,  options = list(
         scrollX = FALSE,
         scrollY = FALSE,
         searching = FALSE,
         paging = FALSE,
         ordering = FALSE
       )
-    )
+    ))
   })
-##################################################
-# -> slider functions
-##################################################
-  #old functions by level
-  #old function
-  ui.evaluation.build <- function(tree, alternatives) {
-    print("ui.evaluation.build")
-    #first convert the tree to data frame for matrix operations
-    dfLevels <- ToDataFrameNetwork(tree, "level", "name")
-    
-    comparisonPanelNumber <- tree$height
-    #print(paste0("alts agaion:",alternatives," len:",length(alternatives)," cNum:",comparisonPanelNumber))
-    if(length(alternatives > 0)) { comparisonPanelNumber <- comparisonPanelNumber + 1 }
-    output$uiEvaluateCriteria <- renderUI({
-      sliders <- lapply(2:comparisonPanelNumber, function(i) {
-        ui.sliders.generate(i,dfLevels, tree, alternatives)
-      })
-      do.call(tabsetPanel,sliders)
-    })
-
-    lapply(2:comparisonPanelNumber, function(i) {
-      ui.sliders.observers.add(i,dfLevels)
-    })
-  }
-  #old function
-  comboFrames.buildFromSliders <- function(combos, level) {
-    dfCriteria <- split(combos,rep(1:nrow(combos),1))
-    criteriaDfList <- lapply(1:nrow(combos), function(i) {
-      dfOut <- data.frame(streOne = c(input[[paste0("slider_",level,"_",i)]]), streTwo = c(100 - input[[paste0("slider_",level,"_",i)]]))
-      colnames(dfOut) <- c(dfCriteria[[i]][[1]], dfCriteria[[i]][[2]])
-      return(dfOut)
-    })
-    criteriaDfList
-  }
-  #old function
-  ui.sliders.observers.add <- function(level, dfLevels) {
-    #add observers to the critiera sliders
-    combos <- treeLevel.combos.unique(level, dfLevels, hdp$tree, hdp$alternatives)
-    
-    lapply(1:nrow(combos), function(i) {
-      observeEvent(input[[paste0("slider_",level,"_",i)]], {
-        output[[paste0("uiOutputValueA_",level,"_",i)]] <- renderUI({
-          span(input[[paste0("slider_",level,"_",i)]])
-        })
-        output[[paste0("uiOutputValueB_",level,"_",i)]] <- renderUI({
-          span(100 - input[[paste0("slider_",level,"_",i)]])
-        })
-      })
-    })
-  }
-  
-  #######################################################
-  #new functions by nodes
+  ##################################################
+  # -> slider functions
+  ##################################################
   comboFrames.buildFromNodeSliders <- function(combos, node) {
     dfCriteria <- split(combos,rep(1:nrow(combos),1))
     criteriaDfList <- lapply(1:nrow(combos), function(i) {
@@ -525,7 +421,7 @@ server <- function(input, output, session) {
 
   #Load models from DB into dynamic grid
   observeEvent(input$btnLoadModels, {
-    #TODO this would be great to have "load my models" - input email and get them 
+    #TODO "load my models" - input email and get them 
     #TODO - maybe enter a user pin -not super secure...?
     observeEvent(input$btnLoadModels, {
       print("Loading Models")
@@ -551,13 +447,8 @@ server <- function(input, output, session) {
       output$uiExpertUrl <- renderUI({
         tags$a(href=paste0(evalUrl,"?modelId=",selectedObjectId),paste0("Expert URL: ",evalUrl,"?modelId=",selectedObjectId))
       })
-
-      #turn the model back into a tree
-      froms <- eval(parse(text = mod$model$from))
-      tos <- eval(parse(text = mod$model$to))
-      pathStrings <- eval(parse(text = mod$model$pathString))
       
-      goodDf <- data.frame(froms,tos,pathStrings)
+      goodDf <- rebuildDataFrameForTree(mod)
       hdp$tree <- FromDataFrameNetwork(goodDf)
       
       hdp$currentModelName <- mod$modelName
@@ -566,10 +457,7 @@ server <- function(input, output, session) {
       #load the alternatives
       updateTextInput(session, "txtAlternatives", value = mod$alternatives)
       hdp$alternatives <- eval(parse(text = mod$alternatives))
-      #print(paste0("Loaded Alternatives: ",hdp$alternatives))
-      print(mod$experts)
       if(!is.null(mod$experts)) {
-        #TODO obbect not found??? handle when there is only 1 expert :(:(:(:(
         hdp$experts <- eval(parse(text = mod$experts))
         ui.experts.build(hdp$experts)
       } else {
@@ -588,11 +476,6 @@ server <- function(input, output, session) {
   })
   
   saveEverything <- function() {
-    #cleanExperts <- lapply(1:length(hdp$experts), function (i) {
-    #  paste0("'",hdp$experts[i],"'")
-    #})
-    #print(cleanExperts)
-    
     dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString")
     
     fullJson <- paste0('{ "modelName" : "',input$txtModelName,'","model":', toJSON(dfTreeAsNetwork),

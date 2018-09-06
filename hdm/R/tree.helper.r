@@ -28,11 +28,11 @@ treeLevel.combos.unique <- function(level, dfLevels, tree, alternatives) {
   if(level > tree$height) {
     dfComparisons <- dfLevels[dfLevels$level == level - 1,c("from","to","level","name")]
     combos <- expand.grid.unique(dfComparisons$name, alternatives)
-    combos    
+    combos
   } else {
     dfComparisons <- dfLevels[dfLevels$level == level,c("from","to","level","name")]
     combos <- expand.grid.unique(dfComparisons$name, dfComparisons$name)
-    combos    
+    combos
   }
 }
 
@@ -43,10 +43,10 @@ node.combos.unique <- function(node, alternatives) {
       node$children[[i]]$name
     })
     combos <- expand.grid.unique(children, children)
-    combos   
+    combos
   } else {
     combos <- expand.grid.unique(alternatives, alternatives)
-    combos    
+    combos
   }
 }
 
@@ -58,4 +58,16 @@ node.children.name <- function(node) {
 
 hack.tree.names <- function(node) {
   node$name
+}
+
+GetExampleTree <- function() {
+  defaultTree <- Node$new("What to eat for breakfast")
+  taste <- defaultTree$AddChild("Taste")
+  speed <- defaultTree$AddChild("Speed")
+  salty <- taste$AddChild("Salty")
+  sweet <- taste$AddChild("Sweet")
+  fast <- speed$AddChild("Fast")
+  slow <- speed$AddChild("Slow")
+
+  defaultTree
 }

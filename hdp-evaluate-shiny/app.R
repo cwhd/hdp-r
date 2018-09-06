@@ -145,12 +145,6 @@ server <- function(input, output, session) {
   node.normalize <- function(currentNode) {
     #get parent
     parent <- currentNode$parent
-    #do calculations for parent node
-    #get unique combinations
-    #combos <- node.combos.unique(parent, NULL)
-    ##put the combinations into frames
-    #comboFrames <- comboFrames.buildFromNodeSliders(combos, parent)
-    #NEW code - make sure it works
     comboFrames <- expert.comboFrames.generate(currentNode)
     #build the comparison frames into a matrix
     matrixColumns <- lapply(1:length(parent$children), function(i){
@@ -164,10 +158,8 @@ server <- function(input, output, session) {
   }
   
   #generate the combo frames so I can save them for later
-  #TODO dup code, clean this up
   expert.comboFrames.generate <- function(currentNode) {
     parent <- currentNode$parent
-    #do calculations for parent node
     #get unique combinations
     combos <- node.combos.unique(parent, NULL)
     #put the combinations into frames
