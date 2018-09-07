@@ -1,5 +1,5 @@
 #################################################
-# Matrix stuff, this will move to the HDP-R module
+# Matrix calculations
 #################################################
 #build the combo matrixes
 matrix.buildFromComboFrames <- function(names,comboFrames) {
@@ -82,4 +82,26 @@ matrix.calculate <- function(A) {
   matrix.final
 }
 
+#this is perfect for a unit test
+#calculate weight for requested node
+node.normalize <- function(currentNode, comboFrames) {
+  #get parent
+  parent <- currentNode$parent
+  #build the comparison frames into a matrix
+  matrixColumns <- lapply(1:length(parent$children), function(i){
+    parent$children[[i]]$name
+  })
+  populatedMatrix <- matrix.buildFromComboFrames(matrixColumns,comboFrames)
+  #now that we have the matrix of comparisons, run the calculations
+  calculatedMatrix <- matrix.calculate(populatedMatrix)
+  #return calculated values for this node
+  return(calculatedMatrix[[currentNode$name,2]])
+}
+
+#calculate the weighted value for each node
+node.finalizeWeights <- function(node) {
+  parent.norm <- node$parent$norm
+  weight <- node$norm * parent.norm
+  return(weight)
+}
 

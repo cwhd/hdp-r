@@ -1,27 +1,18 @@
 # HDP-evaluate-shiny
-# where experts evaluate HDM models...and your HDM dreams come true
-#TODO blog idea: 3 things for awesome Shiny UIs - valiation, consider the user, 
+# This shiny app is intended for experts to express their opinion by rating
+# - decision options against each other
 
 library(shiny)
-library(data.tree)
+library(data.tree)  #tree functionality
 library(mongolite)  #use Mongo for storage
 library(DiagrammeR) #display the tree
 library(DT)         #interface for selecting models from the DB
 library(rjson)      #gives us more flexibility for storing and loading models
-library(hdpr)
-
-#source("../modules/db.functions.r",local=T)
-#source("../modules/ui.elements.r",local=T)
-#source("../modules/tree.helper.r",local=T)
-#source("../modules/utilities.r",local=T)
-#source("../modules/matrix.helper.r",local=T)
+library(hdpr)       #core modules
 
 ui <- fluidPage(
    
-   # Application title
    titlePanel("HDP Model Evaluation"),
-   
-   # Sidebar with a slider input for number of bins 
    sidebarLayout(
       sidebarPanel(
         h3("Instructions"),
@@ -57,11 +48,6 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
-  #TODO load any saved values that we have for the expert -< loadResults(modelId, expertId)
-  # - note eval below..not sure if that will work...
-  #TODO maybe make the saving reactive?? 
-  #TODO be nicer in the interface
-  
   hdp=reactiveValues(tree=NULL, alternatives=NULL, evaluationId=NULL, 
                      expertId=NULL, modelId=NULL)
   
@@ -88,6 +74,7 @@ server <- function(input, output, session) {
       print("------data found for this expert, loading it...")
       expertValues.exists <- TRUE
       #print(evalValues)
+      #TODO move this to a function somewhere else
       froms <- eval(parse(text = evalValues$results$from))
       tos <- eval(parse(text = evalValues$results$to))
       pathStrings <- eval(parse(text = evalValues$results$pathString))
@@ -100,7 +87,7 @@ server <- function(input, output, session) {
       #there is no existing evaluation data for this expert so just load the model
       print("----no eval found, loading model")
       mod <- loadModel(requestedModelId)
-      
+      #TODO move this too
       froms <- eval(parse(text = mod$model$from))
       tos <- eval(parse(text = mod$model$to))
       pathStrings <- eval(parse(text = mod$model$pathString))
@@ -140,23 +127,6 @@ server <- function(input, output, session) {
   # Get form values, calculate & save
   ###############################################
   
-  #this is perfect for a unit test
-  #calculate weight for requested node
-  node.normalize <- function(currentNode) {
-    #get parent
-    parent <- currentNode$parent
-    comboFrames <- expert.comboFrames.generate(currentNode)
-    #build the comparison frames into a matrix
-    matrixColumns <- lapply(1:length(parent$children), function(i){
-      parent$children[[i]]$name
-    })
-    populatedMatrix <- matrix.buildFromComboFrames(matrixColumns,comboFrames)
-    #now that we have the matrix of comparisons, run the calculations
-    calculatedMatrix <- matrix.calculate(populatedMatrix)
-    #return calculated values for this node    
-    return(calculatedMatrix[[currentNode$name,2]])
-  }
-  
   #generate the combo frames so I can save them for later
   expert.comboFrames.generate <- function(currentNode) {
     parent <- currentNode$parent
@@ -165,14 +135,6 @@ server <- function(input, output, session) {
     #put the combinations into frames
     comboFrames <- comboFrames.buildFromNodeSliders(combos, parent)
     comboFrames
-  }
-  
-  #calculate the weighted value for each node
-  node.finalizeWeights <- function(node) {
-    parent.norm <- node$parent$norm
-    weight <- node$norm * parent.norm
-    #TODO maybe if weight is NA just move norm over to that column...
-    return(weight)
   }
   
   #get the value of a slider based on the node
@@ -189,8 +151,10 @@ server <- function(input, output, session) {
   #when the button is clicked, calculate and save everything  
   observeEvent(input$btnSaveAndCalculate, {
     #run the calculations across nodes in the tree
+    
     hdp$tree$Do(function(node) {
-      node$norm <-  node.normalize(node)
+      comboFrames <- expert.comboFrames.generate(node)
+      node$norm <-  node.normalize(node, comboFrames)
     }, filterFun = isNotRoot) 
 
     hdp$tree$Do(function(node) {
@@ -238,14 +202,6 @@ server <- function(input, output, session) {
       h3("Thanks for taking the evaluation! Feel free to tweak your answers or just have a nice day :)")
     })
   })
-  
-  #hack to fix to and from containing entire pathString
-  getLastElementInPath <- function(val) {
-    splits <- unlist(strsplit(val, "/"))
-    retVal <- splits[length(splits)]
-    #print(retVal)
-    retVal
-  }
   
   #build the combo frames from the sliders
   comboFrames.buildFromNodeSliders <- function(combos, node) {
@@ -323,26 +279,15 @@ server <- function(input, output, session) {
   }
   
   #TODO prob delete this too
-  ui.babytree.generate <- function(node) {
-    babyTree <- Node$new(node$name)
-    #lapply(1:length(node$children), function(i) {
-    #  babyTree$AddChildNode(child=Node$new(node$children[i]$name))
-    #})
-    output[[paste0("treeNode_",node$name)]]=renderGrViz({
-      grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(node)),engine = "dot")
-    })
-  }
-  #add observer to the tab? probably delete this
-  ui.tabs.observers.add <- function(node) {
-    testTree <- Node$new(node$name)
-    
-    observeEvent(input[[node$name]], {
-      output$modelTree = renderGrViz({
-        grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(testTree)),engine = "dot")
-      })
-    })
-    
-  }
+  #ui.babytree.generate <- function(node) {
+  #  babyTree <- Node$new(node$name)
+  #  #lapply(1:length(node$children), function(i) {
+  #  #  babyTree$AddChildNode(child=Node$new(node$children[i]$name))
+  #  #})
+  #  output[[paste0("treeNode_",node$name)]]=renderGrViz({
+  #    grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(node)),engine = "dot")
+  #  })
+#  }
   
   #add observers to the sliders here
   ui.nodesliders.observers.add.byNode <- function(node) {

@@ -35,6 +35,12 @@ childrenOrNothing <- function(currentNode) {
   }
 }
 
+#hack to fix to and from containing entire pathString
+getLastElementInPath <- function(val) {
+  splits <- unlist(strsplit(val, "/"))
+  retVal <- splits[length(splits)]
+  retVal
+}
 
 #################################################
 # end Utilities
