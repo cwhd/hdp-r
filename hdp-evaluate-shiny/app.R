@@ -151,25 +151,20 @@ server <- function(input, output, session) {
   observeEvent(input$btnSaveAndCalculate, {
     #run the calculations across nodes in the tree
     
-    hdp$tree$Do(function(node) {
-      comboFrames <- expert.comboFrames.generate(node)
-      node$norm <-  node.normalize(node, comboFrames)
-    }, filterFun = isNotRoot) 
-
-    hdp$tree$Do(function(node) {
-      node$weight <-  node.finalizeWeights(node)
-    }, filterFun = isNotRoot) 
-    #get the raw slider values and save them so we can pre-populate the form
-    hdp$tree$Do(function(node) {
-      node$sliderValues <- slider.get(node)
-    }, filterFun = isNotLeaf)
-    
+    #hdp$tree <- calculateHDMWeights(hdp$tree)
+    #used to reload the form with values later if we need to
     comboFrameList <- hdp$tree$Get(expert.comboFrames.generate, filterFun = isNotRoot)
     print("-------comboFrameList:")
     print(comboFrameList)
     
-    #print("----bunch of new stuff in the tree")
-    #print(hdp$tree)
+    hdp$tree <- calculateHDMWeights(hdp$tree, comboFrameList)
+    print("----bunch of new stuff in the tree")
+    print(hdp$tree, "norm","weight")
+    
+    #get the raw slider values and save them so we can pre-populate the form
+    hdp$tree$Do(function(node) {
+      node$sliderValues <- slider.get(node)
+    }, filterFun = isNotLeaf)
     
     #convert the tree to a data frame and save it to the DB
     dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString","weight","norm","sliderValues")
@@ -177,7 +172,7 @@ server <- function(input, output, session) {
     dfTreeAsNetwork$from <- lapply(dfTreeAsNetwork$from,getLastElementInPath)
     dfTreeAsNetwork$to <- lapply(dfTreeAsNetwork$to,getLastElementInPath)
     
-    print(dfTreeAsNetwork)
+    #print(dfTreeAsNetwork)
     
     dfTreeFlatResults <- ToDataFrameTree(hdp$tree,"pathString","weight","norm","sliderValues")
     dfTreeFlatResults$pathString <- lapply(dfTreeFlatResults$pathString,getLastElementInPath)
@@ -297,7 +292,7 @@ server <- function(input, output, session) {
   
   #render a nice tree
   ui.tree.render <- function(tree, specialNode) {
-    print("rendering tree...")
+    #print("rendering tree...")
     #TODO regenerate tree from here!!! this sets the state
     
     SetNodeStyle(tree,  style = "filled,rounded", shape = "box", fillcolor = "GreenYellow", 

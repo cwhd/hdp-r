@@ -10,33 +10,13 @@
 #'@param x where x is the string you want to trim.
 trim <- function (x) gsub("^\\s+|\\s+$", "", x)
 
-#'Create a unique comparison matrix
-#'
-#'This function will take in 2 lists and return the unique set of combinations
-#'between them. This is necessary in HDM when you need to create the pairwise
-#'comparisons based on children of a node in the hierarchy.
-#'
-#'@param x first list to compare
-#'@param y second list to compare
-#'@param include.equals
-expand.grid.unique <- function(x, y, include.equals=FALSE)
-{
-  x <- unique(x)
-  y <- unique(y)
-  g <- function(i)
-  {
-    z <- setdiff(y, x[seq_len(i-include.equals)])
-    if(length(z)) cbind(x[i], z, deparse.level=0)
-  }
-  do.call(rbind, lapply(seq_along(x), g))
-}
-
 #'If a node has children return them, otherwise return nothing
 #'
 #'Sometimes you want to either the children of a node or nothing at all. This
 #'function handles that for you.
 #'
 #'@param currentNode the node you want to check
+#'@export
 childrenOrNothing <- function(currentNode) {
   if(length(currentNode$children) > 0) {
     toString(
@@ -60,6 +40,7 @@ childrenOrNothing <- function(currentNode) {
 #'helps fix that by taking the last element out of the path and returning it.
 #'
 #'@param val the path to get the last element out of
+#'@export
 getLastElementInPath <- function(val) {
   splits <- unlist(strsplit(val, "/"))
   retVal <- splits[length(splits)]

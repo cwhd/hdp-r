@@ -2,7 +2,6 @@
 # Functions to make working with trees easier
 ##########################################################
 
-
 #' Get all the nodes at a specified level in the tree
 #'
 #' Given a tree and a desired level, returns all nodes at the
@@ -43,10 +42,10 @@ getUniqueChildCombinations <- function(node, alternatives) { #node.combos.unique
     children <- lapply(1:length(node$children), function(i){
       node$children[[i]]$name
     })
-    combos <- expand.grid.unique(children, children)
+    combos <- grid.unique(children, children)
     combos
   } else {
-    combos <- expand.grid.unique(alternatives, alternatives)
+    combos <- grid.unique(alternatives, alternatives)
     combos
   }
 }
@@ -69,7 +68,7 @@ getNodeName <- function(node) {
 #'
 #' This will return an example tree that can be loaded as a model
 #' @export
-GetExampleTree <- function() {
+getExampleTree <- function() {
   defaultTree <- Node$new("What to eat for breakfast")
   taste <- defaultTree$AddChild("Taste")
   speed <- defaultTree$AddChild("Speed")
@@ -79,4 +78,26 @@ GetExampleTree <- function() {
   slow <- speed$AddChild("Slow")
 
   defaultTree
+}
+
+#'Create a unique comparison matrix
+#'
+#'This function will take in 2 lists and return the unique set of combinations
+#'between them. This is necessary in HDM when you need to create the pairwise
+#'comparisons based on children of a node in the hierarchy. This is only used
+#'internally by getUniqueChildCombinations.
+#'
+#'@param x first list to compare
+#'@param y second list to compare
+#'@param include.equals
+grid.unique <- function(x, y, include.equals=FALSE)
+{
+  x <- unique(x)
+  y <- unique(y)
+  g <- function(i)
+  {
+    z <- setdiff(y, x[seq_len(i-include.equals)])
+    if(length(z)) cbind(x[i], z, deparse.level=0)
+  }
+  do.call(rbind, lapply(seq_along(x), g))
 }
