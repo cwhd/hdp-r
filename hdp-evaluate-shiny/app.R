@@ -62,9 +62,7 @@ server <- function(input, output, session) {
     currentExpert <- query[["expertId"]]
 
     evalValues <- loadResults(requestedModelId, currentExpert)
-    
     expertValues.exists <- FALSE
-    
     alternatives <- NULL
 
     #if we have an eval, preload it
@@ -87,14 +85,15 @@ server <- function(input, output, session) {
       #there is no existing evaluation data for this expert so just load the model
       print("----no eval found, loading model")
       mod <- loadModel(requestedModelId)
-      #TODO move this too
-      froms <- eval(parse(text = mod$model$from))
-      tos <- eval(parse(text = mod$model$to))
-      pathStrings <- eval(parse(text = mod$model$pathString))
+      #TODO replaced with helper function below...
+      #froms <- eval(parse(text = mod$model$from))
+      #tos <- eval(parse(text = mod$model$to))
+      #pathStrings <- eval(parse(text = mod$model$pathString))
       
       alternatives <- eval(parse(text = mod$alternatives))
 
-      data.frame(froms,tos,pathStrings)
+      #data.frame(froms,tos,pathStrings)
+      RebuildDataFrameForHDMTree(mod)
     }
     print("------got data set, buiding tree")
     tree <- FromDataFrameNetwork(goodDf)
@@ -278,17 +277,6 @@ server <- function(input, output, session) {
     #tree$Do(ui.tabs.observers.add, filterFun = isNotLeaf)
   }
   
-  #TODO prob delete this too
-  #ui.babytree.generate <- function(node) {
-  #  babyTree <- Node$new(node$name)
-  #  #lapply(1:length(node$children), function(i) {
-  #  #  babyTree$AddChildNode(child=Node$new(node$children[i]$name))
-  #  #})
-  #  output[[paste0("treeNode_",node$name)]]=renderGrViz({
-  #    grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(node)),engine = "dot")
-  #  })
-#  }
-  
   #add observers to the sliders here
   ui.nodesliders.observers.add.byNode <- function(node) {
     #tree$Get(ui.nodesliders.observers.add.byNode, filterFun = isNotLeaf)
@@ -324,49 +312,6 @@ server <- function(input, output, session) {
       grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(tree)),engine = "dot")
     })
     
-  }
-  
-  ########################################
-  ## DELETE ME!!!
-  #######################################
-  #with a tree and alternatives build out the evaluation form
-  #TODO this may get deleted
-  ui.evaluation.build.byNode <- function(tree, alternatives) {
-    print("ui.evaluation.build.byNode")
-    nodes <- tree$Get('name')
-    
-    output$uiEvaluateCriteria <- renderUI({
-      sliders <- lapply(1:length(nodes), function(i) {
-        ui.sliders.generate.byNode(FindNode(node = tree, name = nodes[i]), alternatives)
-      })
-      do.call(tabsetPanel,sliders)
-    })
-    
-    lapply(1:length(nodes), function(i) {
-      ui.nodesliders.observers.add(FindNode(node = tree, name = nodes[i]), alternatives)
-    })
-  }
-  #add observers to the evaluation sliders
-  ui.nodesliders.observers.add <- function(node, alternatives) {
-    #TODO only do this when there are children...because we are adding alts to he tree here
-    # - w should be good to go
-    combos <- node.combos.unique(node, alternatives)
-    #print("------node")
-    #print(node)
-    #print("----alts")
-    #print(alternatives)
-    if(length(combos) > 1) {
-      lapply(1:nrow(combos), function(i) {
-        observeEvent(input[[paste0("slider_",node$name,"_",i)]], {
-          output[[paste0("uiOutputValueA_",node$name,"_",i)]] <- renderUI({
-            span(input[[paste0("slider_",node$name,"_",i)]])
-          })
-          output[[paste0("uiOutputValueB_",node$name,"_",i)]] <- renderUI({
-            span(100 - input[[paste0("slider_",node$name,"_",i)]])
-          })
-        })
-      })
-    }
   }
 }
 

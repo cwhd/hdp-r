@@ -1,7 +1,15 @@
-#################################################
-# -> Helper functions to get and save stuff from the DB
-#################################################
+##########################################################
+# -> Helper functions to get and save stuff from the DB <-
+##########################################################
 
+#'Save an expert's evaluation to the DB
+#'
+#'Once an expert evaluates all of their options this function will save them
+#'so we can aggregate them and use them later.
+#'
+#'@param data the results from the evaluation
+#'@param expertId the ID of the expert to associate this evaluation with
+#'@param modelId the ID of the model being evaluated
 saveEvaluation <- function(data, expertId, modelId) {
   dbInsert <- tryCatch({
     db <-   getDbConnection("evaluations")
@@ -16,7 +24,14 @@ saveEvaluation <- function(data, expertId, modelId) {
   })
 }
 
-#pass in all the experts as JSON with a modelID to update the DB
+#'Save experts to MongoDB
+#'
+#'In HDM a group of domain experts are used to evaluate options. This function
+#'will associate experts with a model and save them to a MongoDB.
+#'
+#'@param expertsJson the experts represented in JSON format
+#'@param modelId the id of the model you're associating experts with
+#'pass in all the experts as JSON with a modelID to update the DB
 saveExperts <- function(expertsJson, modelId) {
   dbInsert <- tryCatch({
     db <- getDbConnection()
@@ -33,7 +48,11 @@ saveExperts <- function(expertsJson, modelId) {
 
 }
 
-#save all data from the admin app
+#'Save all data pertaining to the definition of a model
+#'
+#'@param data the full set of data to save in JSON format
+#'@param id the ID of the model to update. If no ID is passed we will insert a record
+#'@param collection TODO delete this I think
 saveData <- function(data, id, collection) {
   dbInsert <- tryCatch({
     db <- if(missing(collection)) {
@@ -71,6 +90,10 @@ loadModel <- function(modelId) {
   model
 }
 
+#'Load expert evaluations from a MongoDB
+#'
+#'@param modelId the ID of the model you want to load
+#'@param expertId OPTIONAL get results from a specific expert
 loadResults <- function(modelId, expertId) {
   evaluations <- tryCatch({
     db <- getDbConnection("evaluations")
@@ -91,22 +114,10 @@ loadResults <- function(modelId, expertId) {
   evaluations
 }
 
-loadResultsIterator <- function(modelId) {
-  evaluations <- tryCatch({
-    db <- getDbConnection("evaluations")
-    data <- db$iterate(query = paste0('{"modelId" : "',modelId,'"}'))
-    data
-  },
-  error=function(e) {
-    print(paste0("ERROR loading model!",modelId))
-    print(e)
-    #TODO this is going to blow up, still need to handle it
-    ""
-  })
-  evaluations
-}
-
-#load up all the models ids and names for the list
+#' Utility to load all the models ids and names
+#'
+#' This is used in the Shiny Admin app to get all of the models so we can
+#' Load existing models by ID
 loadAllModels <- function() {
   allModels <- tryCatch({
     db <- getDbConnection()
@@ -124,7 +135,7 @@ loadAllModels <- function() {
   allModels
 }
 
-
+#'Utility to get a connection to a MongoDb
 getDbConnection <- function(collection) {
   collectionName <- if(missing(collection)) {
     "models"
@@ -139,33 +150,18 @@ getDbConnection <- function(collection) {
               url = dataUri)
 }
 
-rebuildDataFrameForTree <- function(mod) {
+#'Return a data.frame that can be converted to a tree
+#'with your model based on data retrieved from somewhere else.
+#'
+#'@param model definition from database
+#'@return A \code{\link{data.tree}} containing the model
+#'
+#'@rdname RebuildDataFrameForHDMTree
+#'@export
+RebuildDataFrameForHDMTree <- function(mod) {
   froms <- eval(parse(text = mod$model$from))
   tos <- eval(parse(text = mod$model$to))
   pathStrings <- eval(parse(text = mod$model$pathString))
 
   goodDf <- data.frame(froms,tos,pathStrings)
-
 }
-
-#################################################
-# END mongo stuff
-# if you want to use authentication with accounts, use this below
-#  db <- mongo(collection = collectionName,
-#              url = sprintf(
-#                "mongodb://%s:%s@%s/%s",
-#                options()$mongodb$username,
-#                options()$mongodb$password,
-#                options()$mongodb$host,
-#                databaseName))
-# AND put this up top:
-#options(mongodb = list(
-#  "host" = "localhost:27017",
-#  "username" = "dev",
-#  "password" = "Password1"
-#))
-#databaseName <- "hdp"
-#
-# I wanted to get ENV variables working in Docker, not sure why they don't:
-#   #print(paste0("MONGO_URI:", Sys.getenv("MONGO_URI")))
-#################################################

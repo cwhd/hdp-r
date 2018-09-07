@@ -366,6 +366,8 @@ server <- function(input, output, session) {
   ##################################################
   # -> slider functions
   ##################################################
+  #for all the combinations of elements in a Node, get the data from the
+  #sliders on the page
   comboFrames.buildFromNodeSliders <- function(combos, node) {
     dfCriteria <- split(combos,rep(1:nrow(combos),1))
     criteriaDfList <- lapply(1:nrow(combos), function(i) {
@@ -448,7 +450,7 @@ server <- function(input, output, session) {
         tags$a(href=paste0(evalUrl,"?modelId=",selectedObjectId),paste0("Expert URL: ",evalUrl,"?modelId=",selectedObjectId))
       })
       
-      goodDf <- rebuildDataFrameForTree(mod)
+      goodDf <- RebuildDataFrameForHDMTree(mod)
       hdp$tree <- FromDataFrameNetwork(goodDf)
       
       hdp$currentModelName <- mod$modelName
@@ -484,10 +486,8 @@ server <- function(input, output, session) {
                        '}')
     
     if(!is.null(hdp$currentModelId)) {
-      #fullJson <- paste0('{ "_id" : "',hdp$currentModelId,'",',fullJson)
       saveData(fullJson, hdp$currentModelId)
     } else {
-      #fullJson <- paste0('{ ', fullJson)
       saveData(fullJson, NULL)
     }    
   }
