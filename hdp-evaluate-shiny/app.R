@@ -130,7 +130,7 @@ server <- function(input, output, session) {
   expert.comboFrames.generate <- function(currentNode) {
     parent <- currentNode$parent
     #get unique combinations
-    combos <- node.combos.unique(parent, NULL)
+    combos <- getUniqueChildCombinations(parent, NULL)
     #put the combinations into frames
     comboFrames <- comboFrames.buildFromNodeSliders(combos, parent)
     comboFrames
@@ -138,7 +138,7 @@ server <- function(input, output, session) {
   
   #get the value of a slider based on the node
   slider.get <- function(node) {
-    combos <- node.combos.unique(node, NULL)
+    combos <- getUniqueChildCombinations(node, NULL)
     nodeSliderValues <- lapply(1:nrow(combos), function(i) {
       input[[paste0("slider_",node$name,"_",i)]]
     })
@@ -219,7 +219,7 @@ server <- function(input, output, session) {
   
   #TODO probably need to add level here to accomodate duplicate node names
   slider.new <- function(node) {
-    combos <- node.combos.unique(node, NULL)
+    combos <- getUniqueChildCombinations(node, NULL)
     rawValues <- sapply(unlist(strsplit(as.character(node$sliderValues), ",")),trim)
     print(node$name)
     print("--raw values??")
@@ -259,11 +259,11 @@ server <- function(input, output, session) {
   
   ui.evaluation.build.byTree <- function(tree) {
     print("ui.evaluation.build.byTree")
-    nodeNamesHack <- tree$Get(hack.tree.names, filterFun = isNotLeaf)
+    allNodeNames <- tree$Get(getNodeName, filterFun = isNotLeaf)
     output$uiEvaluateCriteria <- renderUI({
       sliders <- tree$Get(slider.new, filterFun = isNotLeaf)
       tabSliders <- lapply(1:length(sliders), function(i) {
-        taby <- tabPanel(paste0(nodeNamesHack[i]),sliders[i]) 
+        taby <- tabPanel(paste0(allNodeNames[i]),sliders[i]) 
         taby
       })
       do.call(tabsetPanel,tabSliders)
@@ -280,7 +280,7 @@ server <- function(input, output, session) {
   #add observers to the sliders here
   ui.nodesliders.observers.add.byNode <- function(node) {
     #tree$Get(ui.nodesliders.observers.add.byNode, filterFun = isNotLeaf)
-    combos <- node.combos.unique(node, NULL)
+    combos <- getUniqueChildCombinations(node, NULL)
     lapply(1:nrow(combos), function(i) {
       observeEvent(input[[paste0("slider_",node$name,"_",i)]], {
         output[[paste0("uiOutputValueA_",node$name,"_",i)]] <- renderUI({

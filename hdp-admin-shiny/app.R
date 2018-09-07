@@ -297,16 +297,20 @@ server <- function(input, output, session) {
     expertFlatResults <- lapply(1:length(hdp$experts), function(i) { 
       evaluations <- loadResults(hdp$currentModelId, hdp$experts[i])
       
-      nodes <- eval(parse(text = evaluations$flatResults$pathString))
-      evalWeights <- eval(parse(text = evaluations$flatResults$weight))
-      evalNorms <- eval(parse(text = evaluations$flatResults$norm))
-      sliderValues <- eval(parse(text = evaluations$flatResults$sliderValues))
-      #TODO add means and stuff to the end of this data table...
-      
-      goodDf <- data.frame(nodes, evalWeights)
-      colnames(goodDf) <- c("Criteria")
-      goodDf
+      if(nrow(evaluations) > 0) {
+        nodes <- eval(parse(text = evaluations$flatResults$pathString))
+        evalWeights <- eval(parse(text = evaluations$flatResults$weight))
+        evalNorms <- eval(parse(text = evaluations$flatResults$norm))
+        sliderValues <- eval(parse(text = evaluations$flatResults$sliderValues))
+        #TODO add means and stuff to the end of this data table...
+        
+        goodDf <- data.frame(nodes, evalWeights)
+        colnames(goodDf) <- c("Criteria")
+        goodDf
+      }
     })
+    expertFlatResults <- compact(expertFlatResults)
+    print(expertFlatResults)
     #build the matrix for the final results    
     flippedExpertResults <- lapply(1:length(expertFlatResults), function(i) {
       f <- t(expertFlatResults[[i]][-1])
@@ -323,14 +327,14 @@ server <- function(input, output, session) {
         evaluations <- loadResults(hdp$currentModelId, hdp$experts[i])
 
         #TODO this should be the expert version of the tree...
-        nodeNamesHack <- hdp$tree$Get(hack.tree.names)
+        allNodeNames <- hdp$tree$Get(getNodeName)
 
-        comboTableList <- lapply(1:length(nodeNamesHack), function(j) {
-          comboFrameList <- evaluations$comboFrames[[nodeNamesHack[j]]]
+        comboTableList <- lapply(1:length(allNodeNames), function(j) {
+          comboFrameList <- evaluations$comboFrames[[allNodeNames[j]]]
           renderDataTable({
             datatable(
               as.data.frame(comboFrameList),
-              caption = nodeNamesHack[j],
+              caption = allNodeNames[j],
               width = 100, 
               rownames = FALSE,
               options = list(
@@ -397,7 +401,7 @@ server <- function(input, output, session) {
   }
   
   ui.nodesliders.observers.add <- function(node, alternatives) {
-    combos <- node.combos.unique(node, alternatives)
+    combos <- getUniqueChildCombinations(node, alternatives)
     if(length(combos) > 0) {
       lapply(1:nrow(combos), function(i) {
         observeEvent(input[[paste0("slider_",node$name,"_",i)]], {

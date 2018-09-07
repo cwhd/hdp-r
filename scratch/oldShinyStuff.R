@@ -168,3 +168,58 @@ loadResultsIterator <- function(modelId) {
   })
   evaluations
 }
+
+#this was from tree.helper.R, not used anymore
+addTreeBranches <- function(tree, level) {
+  if(length(currentNode$children == 0)) {
+    print(paste0("0 Chilandos at level ",level))
+    currentNode$AddChildNode(child=Node$new(paste0("test",i))) # add child
+  }
+}
+
+#' Get unique combinations of elements at a level in the tree
+#'
+#' When doing pairwise comparison you need to compare each child node down
+#' the tree against each other. To do this you need the unique combination
+#' of nodes for comparison, this function will give you that
+#treeLevel.combos.unique <- function(level, dfLevels, tree, alternatives) {
+#  if(level > tree$height) {
+#    dfComparisons <- dfLevels[dfLevels$level == level - 1,c("from","to","level","name")]
+#    combos <- expand.grid.unique(dfComparisons$name, alternatives)
+#    combos
+#  } else {
+#    dfComparisons <- dfLevels[dfLevels$level == level,c("from","to","level","name")]
+#    combos <- expand.grid.unique(dfComparisons$name, dfComparisons$name)
+#    combos
+#  }
+#}
+
+#ui.sliders.generate <- function(level, dfLevels, tree, alternatives) {
+#  combos <- treeLevel.combos.unique(level, dfLevels, tree, alternatives)
+#  #build the critiera sliders for a level in the tree
+#  sliders <- lapply(1:nrow(combos), function(i) {
+#    fluidRow(
+#      column(1,
+#             span(combos[i,1]),
+#             uiOutput(paste0("uiOutputValueA_",level,"_",i))
+#      ),
+#      column(5,
+#             sliderInput(paste0("slider_",level,"_",i),"",value = 50, min = 1, max = 99)
+#      ),
+#      column(1,
+#             span(combos[i,2]),
+#             uiOutput(paste0("uiOutputValueB_",level,"_",i))
+#      )
+#    )
+#  })
+#
+#  taby <- tabPanel(paste0("Level ",level-1), sliders)
+#  taby
+#}
+
+node.children.name <- function(node) {
+  children <- lapply(1:length(node$children), function(i){
+    node$children[[i]]$name
+  })
+}
+
