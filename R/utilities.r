@@ -2,21 +2,22 @@
 # -> Utility functions to make life easier <-
 #############################################
 
-#'Returns string w/o leading or trailing whitespace
+#' Returns string w/o leading or trailing whitespace
 #'
-#'This is a really useful function for building trees as whitespace is
-#'valid in node names but messes up working with them later on.
+#' This is a really useful function for building trees as whitespace is
+#' valid in node names but messes up working with them later on.
 #'
-#'@param x where x is the string you want to trim.
+#' @param x where x is the string you want to trim.
+#' @export
 trim <- function (x) gsub("^\\s+|\\s+$", "", x)
 
-#'If a node has children return them, otherwise return nothing
+#' If a node has children return them, otherwise return nothing
 #'
-#'Sometimes you want to either the children of a node or nothing at all. This
-#'function handles that for you.
+#' Sometimes you want to either the children of a node or nothing at all. This
+#' function handles that for you.
 #'
-#'@param currentNode the node you want to check
-#'@export
+#' @param currentNode the node you want to check
+#' @export
 childrenOrNothing <- function(currentNode) {
   if(length(currentNode$children) > 0) {
     toString(

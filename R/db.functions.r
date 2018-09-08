@@ -338,7 +338,7 @@ loadAllModels <- function(dataUri) {
 #' @param collection the collection to update. You should never worry about this
 #' as there are 2 collections used by this app, "evaluations" and "models". If you
 #' mess with that then you are going to break things.
-#' @dataUri the URI of the mongoDb to use. Note just the URL is needed for now.
+#' @param dataUri the URI of the mongoDb to use. Note just the URL is needed for now.
 getDbConnection <- function(collection, dataUri) {
   collectionName <- if(missing(collection)) {
     "models"

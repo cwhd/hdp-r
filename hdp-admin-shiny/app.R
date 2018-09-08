@@ -1,10 +1,10 @@
-# HDP-R - Admin tool to build models 
+# HDP-R - Admin tool to build models
 # A shiny based interface to collect data for HDP models
 
 library(shiny)
 library(data.tree)  #for managing the hierarchy
 library(DiagrammeR) #display the tree
-library(mongolite)  #use Mongo for storage 
+library(mongolite)  #use Mongo for storage
 library(rjson)      #gives us more flexibility for storing and loading models
 library(DT)         #interface for selecting models from the DB
 library(xtable)
@@ -13,10 +13,10 @@ library(hdpr)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-   
+
   # Application title
   titlePanel("HDM Builder"),
-  
+
   sidebarLayout(
     sidebarPanel(
       wellPanel(
@@ -33,7 +33,7 @@ ui <- fluidPage(
         actionButton("btnUpdateAlternatives", "Update Alternatives")
       )
     ),
-    
+
     # Show a plot of the generated distribution
     mainPanel(
       tabsetPanel(
@@ -53,8 +53,8 @@ ui <- fluidPage(
         ),
         tabPanel("Experts",
                  h4("Add or remove experts here"),
-                 p("After you've saved your model you can add some experts. Each 
-                   expert will have a specific URL where they will rate your model, 
+                 p("After you've saved your model you can add some experts. Each
+                   expert will have a specific URL where they will rate your model,
                    if you need to manually send a URL make sure to use the correct one."),
                  uiOutput("uiExperts"),
                  textInput("txtNewExpert", "New Expert", placeholder = "enter email here..."),
@@ -109,12 +109,12 @@ ui <- fluidPage(
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
-  
+
   #reactive values used through the app
   hdp=reactiveValues(tree=NULL,criteria=NULL,factors=NULL,criteriaCombos=NULL,
                      alternatives=NULL,loadedModels=NULL,currentModelName=NULL,
                      currentModelId=NULL, expertList = NULL)
-  
+
   dataUri <- "mongodb://localhost/hdp" #local db
   #dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
 
@@ -130,23 +130,23 @@ server <- function(input, output, session) {
   #click the "Load Example" button, get an example
   observeEvent(input$btnLoadExample, {
     defaultTree <- getExampleTree()
-    
+
     hdp$tree <- defaultTree
     hdp$currentModelName <- "Breakfast Chooser"
     hdp$alternatives = c("eggs","waffles","pancakes","fruit")
-    ui.refresh.fromTree(hdp$tree, hdp$alternatives)    
+    ui.refresh.fromTree(hdp$tree, hdp$alternatives)
     ui.alternatives.update(hdp$alternatives)
     updateTextInput(session, "txtModelName", value = toString(hdp$currentModelName))
     updateTextInput(session, "txtAlternatives", value = hdp$alternatives)
-    
+
     ui.tree.render(defaultTree)
   })
-  
+
   #someone updated the form and clicked "Rebuild Tree From Form", so do it!
   observeEvent(input$btnRebuildTree, {
     ui.refresh.fromForm()
   })
-    
+
   #this will update everything based on whatever is on the form
   ui.refresh.fromForm <- function() {
     #TODO this blows up if you remove the last level of the tree...need to fix that
@@ -157,7 +157,7 @@ server <- function(input, output, session) {
     for(v in criteria) {
       newtree$AddChildNode(child=Node$new(v))
     }
-    
+
     knownHeight <- if(!is.null(hdp$tree$height)) {
       hdp$tree$height
     } else {
@@ -166,10 +166,10 @@ server <- function(input, output, session) {
     #add all the features we know of
     print("adding features")
     features <- lapply(2:knownHeight, function(i){
-      
+
       newTreeElements <- getNodeNamesAtLevel(newtree, i) #get all of the new elements
       oldTreeElements <- getNodeNamesAtLevel(hdp$tree, i) #get all of the old elements
-      print(paste0("at level: ",i," old: ", 
+      print(paste0("at level: ",i," old: ",
                    unlist(oldTreeElements), " new: ",unlist(newTreeElements)))
 
       #combine the 2 lists, return common elements - only look for texts in both
@@ -185,14 +185,14 @@ server <- function(input, output, session) {
         })
       }
     })
-      
+
     hdp$tree <- newtree
     ui.tree.render(newtree)
     alts <- unlist(strsplit(input$txtAlternatives, ","))
     ui.refresh.fromTree(newtree, alts)
   }
-  
-  #this should only be used when we get a new tree from the DB  
+
+  #this should only be used when we get a new tree from the DB
   ui.refresh.fromTree <- function(tree, alternatives) {
     print("ui.refresh.fromtree")
     updateTextInput(session, "txtDecison", value = toString(tree$name))
@@ -206,7 +206,7 @@ server <- function(input, output, session) {
     #update the expert evaluation example form
     ui.evaluation.build.byNode(tree, alternatives)
   }
-  
+
   #update the factors
   ui.factors.textInput.build <- function(tree){
     print("ui.factors.textInput.build()")
@@ -217,7 +217,7 @@ server <- function(input, output, session) {
       do.call(tabsetPanel,featureLevels)
     })
   }
-  
+
   #update alternatives
   ui.alternatives.update <- function(alternatives) {
     output$uiDynaAlternatives <- renderUI({
@@ -229,20 +229,20 @@ server <- function(input, output, session) {
       do.call(shiny::tagList,alternativeList)
     })
   }
-  
+
   #manually update alternatives when a user changes them
   observeEvent(input$btnUpdateAlternatives, {
     altSlplitter <- unlist(strsplit(input$txtAlternatives, ","))
     ui.alternatives.update(altSlplitter)
   })
-  
+
   #render the tree on the model page
   ui.tree.render <- function(tree) {
     output$xx=renderGrViz({
       grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(tree)),engine = "dot")
     })
   }
-  
+
   ###############################################################
   # Functions for managing experts
   ###############################################################
@@ -261,13 +261,13 @@ server <- function(input, output, session) {
     if(length(hdp$experts) > 0) {
       ui.experts.refresh.fromForm(hdp$experts)
     }
-    
+
     #TODO check for current model id, if it doesn't exist notify user
     print("updating experts...")
 
     saveEverything()
   })
-  
+
   #rebuild the experts in memory from the form
   ui.experts.refresh.fromForm <- function(experts) {
     expertsFromForm <- lapply(1:length(experts), function(i) {
@@ -278,7 +278,7 @@ server <- function(input, output, session) {
     ui.experts.build(expertsFromForm)
     hdp$experts <- expertsFromForm
   }
-  
+
   #build out the experts form
   ui.experts.build <-function(experts) {
     print("ui.experts.build")
@@ -293,19 +293,18 @@ server <- function(input, output, session) {
     })
     updateTextInput(session, "txtNewExpert", value = "", placeholder = "enter new email here...")
   }
-  
+
   #load expert results
-  #TODO this should really only have to run once, then save the stuff and load it later
   observeEvent(input$btnLoadResults, {
     print("loading results...")
-    
+
     flippedExpertResults <- getExpertEvaluationRollup(hdp$experts, hdp$currentModelId, dataUri)
     resultsTable <- do.call(rbind,flippedExpertResults)
 
     #build out the tabs for the experts
     output$uiIndividualExperts <- renderUI({
-      expertComboFrameTabs <- lapply(1:length(hdp$experts), function(i) { 
-        
+      expertComboFrameTabs <- lapply(1:length(hdp$experts), function(i) {
+
         #get results for expert
         evalComboFrames <- getExpertEvaluationComboFrames(hdp$experts[i],hdp$currentModelId, dataUri)
         #TODO this should be the expert version of the tree...
@@ -317,7 +316,7 @@ server <- function(input, output, session) {
             datatable(
               as.data.frame(comboFrameList),
               caption = allNodeNames[j],
-              width = 100, 
+              width = 100,
               rownames = FALSE,
               options = list(
                 scrollX = FALSE,
@@ -331,14 +330,14 @@ server <- function(input, output, session) {
             )
           })
         })
-        taby <- tabPanel(hdp$experts[i], comboTableList) 
+        taby <- tabPanel(hdp$experts[i], comboTableList)
         taby
       })
       do.call(tabsetPanel,expertComboFrameTabs)
     })
-    
+
     # TODO still need other vals like inconsistency or whaever
-    
+
     output$tblResults <- renderDataTable(
       datatable(resultsTable,  options = list(
         scrollX = FALSE,
@@ -349,7 +348,7 @@ server <- function(input, output, session) {
       )
     ))
   })
-  
+
   ##################################################
   # -> slider functions
   ##################################################
@@ -377,7 +376,7 @@ server <- function(input, output, session) {
       })
       do.call(tabsetPanel,sliders)
     })
-    
+
     lapply(1:length(nodes), function(i) {
       ui.nodesliders.observers.add(FindNode(node = tree, name = nodes[i]), alternatives)
     })
@@ -404,12 +403,12 @@ server <- function(input, output, session) {
   # a module or something for reuse, but I'll keep them
   # here for now
   ##################################################
-  
+
   #generate text inputs in a tab panel for a level of the tree
   ui.level.textInput.generate <- function(level, tree) {
     #print("ui.leveltextInput.generate")
     nodesAtLevel <- getNodeNamesAtLevel(tree, level)
-    
+
     textBoxes <- lapply(1:length(nodesAtLevel),function(i){   #for each node at the current level
       #add a node to the tree for the new text input
       if(length(nodesAtLevel > 0)) {
@@ -420,14 +419,14 @@ server <- function(input, output, session) {
         )
       }
     })
-    
+
     taby <- tabPanel(paste0("Level ",level),
                      textBoxes
     )
-    
+
     taby
   }
-  #generate a set of sliders for a node 
+  #generate a set of sliders for a node
   ui.sliders.generate.byNode <- function(node, alternatives) {
     combos <- getUniqueChildCombinations(node, alternatives)
     #TODO may need to make sure there are no spaces or special chars in the name
@@ -447,7 +446,7 @@ server <- function(input, output, session) {
         )
       )
     })
-    
+
     taby <- tabPanel(paste0("Node: ",node$name), sliders)
     taby
   }
@@ -458,17 +457,17 @@ server <- function(input, output, session) {
 
   #Load models from DB into dynamic grid
   observeEvent(input$btnLoadModels, {
-    #TODO "load my models" - input email and get them 
+    #TODO "load my models" - input email and get them
     #TODO - maybe enter a user pin -not super secure...?
     observeEvent(input$btnLoadModels, {
       print("Loading Models")
-      
+
       userEmail <- input$txtUserEmail
       pin <- input$txtUserPin
-      
+
       modelData <- loadMyModelsFromDb(userEmail, pin, dataUri)
       #modelData <- loadAllModels()
-      
+
       print("----modeldata:")
       print(modelData)
 
@@ -484,7 +483,7 @@ server <- function(input, output, session) {
       }
     })
   })
-  
+
   #when a row is selected from the grid, load it onto the page
   observe({
     print("updating from db...")
@@ -492,12 +491,12 @@ server <- function(input, output, session) {
     if (length(s)) {
       selectedObjectId <- hdp$loadedModels[[s,"_id"]] #get objectId based on selected index
       hdp$currentModelId <- selectedObjectId
-      
+
       #build the expert URL
       #output$uiExpertUrl <- renderUI({
       #  tags$a(href=paste0(evalUrl,"?modelId=",selectedObjectId),paste0("Expert URL: ",evalUrl,"?modelId=",selectedObjectId))
       #})
-            
+
       #get a full model from the DB
       mod <- getFullHDMModelFromDb(selectedObjectId, dataUri)
       #update the session variables
@@ -511,7 +510,7 @@ server <- function(input, output, session) {
 
       updateTextInput(session, "txtUserEmail", value = toString(mod$userEmail))
       updateTextInput(session, "txtUserPin", value = toString(mod$pin))
-      
+
       if(!is.null(mod$experts)) {
         ui.experts.build(hdp$experts)
       } else {
@@ -522,34 +521,34 @@ server <- function(input, output, session) {
       ui.tree.render(hdp$tree)
     }
   })
-  
+
   #once model is designed, save it to the DB
   observeEvent(input$btnSaveModel, {
     saveEverything()
   })
-  
+
   #convert everything to JSON, save it to the DB
   saveEverything <- function() {
     dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString")
-    
+
     fullJson <- paste0('{ "modelName" : "',input$txtModelName,'","model":', toJSON(dfTreeAsNetwork),
                        ',"alternatives":',toJSON(hdp$alternatives),
                        ',"experts":',toJSON(hdp$experts),
                        ',"userEmail":"',input$txtUserEmail,'" ',
                        ',"pin":"',input$txtUserPin,'"',
                        '}')
-    
+
     if(!is.null(hdp$currentModelId)) {
       saveHDMDataToMongoDb(fullJson, hdp$currentModelId, dataUri)
     } else {
       saveHDMDataToMongoDb(fullJson, NULL, dataUri)
-    }    
+    }
   }
-  
+
   #send logs to stderr for production - ugly hack
-  if (!interactive()) sink(stderr(), type = "output") 
+  if (!interactive()) sink(stderr(), type = "output")
 }
 
-# Run the application 
+# Run the application
 shinyApp(ui = ui, server = server)
 

@@ -29,6 +29,7 @@ MongoDB will be exposed inside the container cluster.
 If you don't know that much about Docker here are some useful commands:
 
 - ssh into one of the nodes: docker exec -it hdp-admin bash
+- you'll find the logs in var/log/shiny-server
 
 ## Architecture
 

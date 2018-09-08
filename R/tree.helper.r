@@ -89,7 +89,7 @@ getExampleTree <- function() {
 #'
 #'@param x first list to compare
 #'@param y second list to compare
-#'@param include.equals
+#'@param include.equals not sure if we even need this anymore
 grid.unique <- function(x, y, include.equals=FALSE)
 {
   x <- unique(x)

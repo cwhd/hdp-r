@@ -13,6 +13,7 @@
 #' @param tree the tree representing the model to calculate
 #' @param comboFrames a list of dataframes with comparative values corresponding
 #' to the tree
+#' @export
 calculateHDMWeights <- function(tree, comboFrames) {
 
   tree$Do(function(node) {

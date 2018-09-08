@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     libxt-dev \
     wget \
     libssl-dev \
-    libsasl2-dev \ 
+    libsasl2-dev \
     libxml2-dev
 
 
@@ -23,6 +23,9 @@ RUN wget --no-verbose https://download3.rstudio.org/ubuntu-14.04/x86_64/VERSION 
     . /etc/environment && \
     R -e "install.packages(c('shiny', 'rmarkdown', 'mongolite','data.tree','rjson'), repos='$MRAN',   dependencies=TRUE)" && \
     cp -R /usr/local/lib/R/site-library/shiny/examples/* /srv/shiny-server/
+
+RUN R -e "install.packages(c('devtools','DT'), repos='http://cran.rstudio.com/')"
+RUN R -e "devtools::install_github('cwhd/hdm-r')"
 
 EXPOSE 80
 EXPOSE 3838
