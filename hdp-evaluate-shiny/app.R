@@ -62,9 +62,9 @@ server <- function(input, output, session) {
     currentExpert <- query[["expertId"]]
     
     #get the tree 
-    tree <- getExpertResultsAsTree(requestedModelId, currentExpert)
+    tree <- getExpertResultsAsTreeFromDb(requestedModelId, currentExpert)
     if(is.null(tree)) {
-      tree <- getModelAsTreeWithAlternatives(requestedModelId)
+      tree <- getModelAsTreeWithAlternativesFromDb(requestedModelId)
     }
 
     ui.evaluation.build.byTree(tree)
@@ -146,7 +146,7 @@ server <- function(input, output, session) {
                        ',"flatResults":',toJSON(dfTreeFlatResults),
                        ',"comboFrames":',toJSON(comboFrameList),
                        '}')
-    saveEvaluation(fullJson, hdp$expertId, hdp$modelId)
+    saveHdmEvaluationToDb(fullJson, hdp$expertId, hdp$modelId)
     
     #TODO check tree to make sure we have reasonable values for everything
     output$uiMessages <- renderUI({

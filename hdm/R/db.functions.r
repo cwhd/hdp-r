@@ -9,17 +9,17 @@
 #' Get an expert's evaluation in tree form
 #'
 #' Given an expertId and modelId, get the evaluation for that expert
-#' and return it in a tree context
+#' from the DB and return it in a tree context
 #'
-#' @rdname getExpertResultsAsTree
+#' @rdname getExpertResultsAsTreeFromDb
 #'
 #' @example
-#'getExpertResultsAsTree("5b85894efccdf91528004090","davis36@pdx.edu")
+#'getExpertResultsAsTreeFromDb("5b85894efccdf91528004090","davis36@pdx.edu")
 #'
 #' @param modelId the modelId for the mode you're looking for
 #' @param expertId the expertId for the expert you're looking for
 #' @export
-getExpertResultsAsTree <- function(modelId, expertId) {
+getExpertResultsAsTreeFromDb <- function(modelId, expertId) {
   evalValues <- loadResults(modelId, expertId)
   expertValues.exists <- FALSE
 
@@ -48,16 +48,16 @@ getExpertResultsAsTree <- function(modelId, expertId) {
 #' Get a model in tree form. If there are alternatives add them to the bottom
 #' of the tree.
 #'
-#' @rdname getModelAsTree
+#' @rdname getModelAsTreeWithAlternativesFromDb
 #'
 #' @example
-#' getModelAsTree("5b85894efccdf91528004090")
+#' getModelAsTreeWithAlternativesFromDb("5b85894efccdf91528004090")
 #'
 #' @param modelId the modelId you're looking for
 #' @export
-getModelAsTreeWithAlternatives <- function(modelId) {
+getModelAsTreeWithAlternativesFromDb <- function(modelId) {
   alternatives <- NULL
-  mod <- loadModel(modelId)
+  mod <- loadHDMModel(modelId)
   #rebuildDataFrameForHDMTree(mod)
   alternatives <- eval(parse(text = mod$alternatives))
 
@@ -81,17 +81,26 @@ getModelAsTreeWithAlternatives <- function(modelId) {
 #' Based on a modelId get an ad-hoc class that has everything we
 #' need for an HDM based model
 #'
+#' @rdname getFullHDMModelFromDb
+#'
 #' @param modelId the modelId that you want to get
-getFullHDMModel <- function(modelId) {
+#' @export
+getFullHDMModelFromDb <- function(modelId) {
 
-  mod <- loadModel(modelId)
+  mod <- loadHDMModel(modelId)
 
   alternatives <- eval(parse(text = mod$alternatives))
   modelName <- mod$modelName
   tree <- FromDataFrameNetwork(rebuildDataFrameForHDMTree(mod))
+  userEmail <- mod$userEmail
+  pin <- mod$pin
 
   experts <- if(!is.null(mod$experts)) {
-    eval(parse(text = mod$experts))
+    if(length(mod$experts) < 1) {
+      eval(parse(text = mod$experts))
+    } else {
+      mod$experts
+    }
   } else {
     NULL
   }
@@ -100,7 +109,9 @@ getFullHDMModel <- function(modelId) {
     alternatives = alternatives,
     modelName = modelName,
     tree = tree,
-    experts = experts
+    experts = experts,
+    userEmail = userEmail,
+    pin = pin
   )
 
   class(hdm) <- append(class(hdm),"HDM")
@@ -108,15 +119,18 @@ getFullHDMModel <- function(modelId) {
   return(hdm)
 }
 
-#'Save an expert's evaluation to the DB
+#' Save an expert's evaluation to the DB
 #'
-#'Once an expert evaluates all of their options this function will save them
-#'so we can aggregate them and use them later.
+#' Once an expert evaluates all of their options this function will save them
+#' so we can aggregate them and use them later.
 #'
-#'@param data the results from the evaluation
-#'@param expertId the ID of the expert to associate this evaluation with
-#'@param modelId the ID of the model being evaluated
-saveEvaluation <- function(data, expertId, modelId) {
+#' @rdname saveHdmEvaluationToDb
+#'
+#' @param data the results from the evaluation
+#' @param expertId the ID of the expert to associate this evaluation with
+#' @param modelId the ID of the model being evaluated
+#' @export
+saveHdmEvaluationToDb <- function(data, expertId, modelId) {
   dbInsert <- tryCatch({
     db <-   getDbConnection("evaluations")
 
@@ -130,42 +144,18 @@ saveEvaluation <- function(data, expertId, modelId) {
   })
 }
 
-#'Save experts to MongoDB
+#'Save all data pertaining to the definition of a model to MongoDB
 #'
-#'In HDM a group of domain experts are used to evaluate options. This function
-#'will associate experts with a model and save them to a MongoDB.
-#'
-#'@param expertsJson the experts represented in JSON format
-#'@param modelId the id of the model you're associating experts with
-#'pass in all the experts as JSON with a modelID to update the DB
-saveExperts <- function(expertsJson, modelId) {
-  dbInsert <- tryCatch({
-    db <- getDbConnection()
-    print("-----saving experts")
-    print(paste0("modelId: ",modelId ))
-    print(paste0("experts: ",expertsJson))
-    db$update(query = paste0('{ "modelId":"',modelId,'" }') ,
-              update = paste0('{ "$set" : { "experts":',expertsJson,'}}'))
-
-
-  }, error = function(e) {
-    print(paste0("ERROR saving experts! ",e))
-  })
-
-}
-
-#'Save all data pertaining to the definition of a model
+#'Send in JSON data, this will save it to MongoDB. I love MongoDB because it's
+#'web scale: https://www.youtube.com/watch?v=b2F-DItXtZs If you don't for some
+#'reason then feel free to submit a PR to this repo for something else.
 #'
 #'@param data the full set of data to save in JSON format
 #'@param id the ID of the model to update. If no ID is passed we will insert a record
-#'@param collection TODO delete this I think
-saveData <- function(data, id, collection) {
+#'@export
+saveDataToMongoDb <- function(data, id) {
   dbInsert <- tryCatch({
-    db <- if(missing(collection)) {
-      getDbConnection()
-    } else {
-      getDbConnection(collection)
-    }
+    db <- getDbConnection()
     if(!is.null(id)) {
       db$update(query = paste0('{ "_id" : {"$oid" : "',id,'"}}') ,
                 update = paste0('{ "$set" : ',data,'}'))
@@ -179,8 +169,63 @@ saveData <- function(data, id, collection) {
   })
 }
 
-#load up a model for the admin app
-loadModel <- function(modelId) {
+#' Get all the expert results and roll them up for display
+#'
+#' Get all of the experts, calculate the summary stats across them,
+#' return a nice matrix for display.
+#'
+#' @rdname getExpertEvaluationRollup
+#'
+#' @param experts collection of experts to get data for
+#' @param modelId modelId that you're working with
+#' @export
+getExpertEvaluationRollup <- function(experts, modelId) {
+  expertFlatResults <- lapply(1:length(experts), function(i) {
+    evaluations <- loadResults(modelId, experts[i])
+
+    if(nrow(evaluations) > 0) {
+      nodes <- eval(parse(text = evaluations$flatResults$pathString))
+      evalWeights <- eval(parse(text = evaluations$flatResults$weight))
+      evalNorms <- eval(parse(text = evaluations$flatResults$norm))
+      sliderValues <- eval(parse(text = evaluations$flatResults$sliderValues))
+      #TODO add means and stuff to the end of this data table...
+
+      goodDf <- data.frame(nodes, evalWeights)
+      colnames(goodDf) <- c("Criteria")
+      goodDf
+    }
+  })
+  expertFlatResults <- compact(expertFlatResults) #remove any missing ones
+  print(expertFlatResults)
+  #build the matrix for the final results
+  flippedExpertResults <- lapply(1:length(expertFlatResults), function(i) {
+    f <- t(expertFlatResults[[i]][-1])
+    colnames(f) <- expertFlatResults[[i]][,1]
+    rownames(f) <- experts[i]
+    f
+  })
+
+  flippedExpertResults
+}
+
+#' Get the combo frames for an expert
+#'
+#' Use this when you want to get the bitwise comparisons for an expert.
+#'
+#' @param expertId the expert you're looking for
+#' @param modelId the model you're looking for
+getExpertEvaluationComboFrames <- function(expertId, modelId) {
+  evaluations <- loadResults(modelId, expertId)
+  comboFrames <- evaluations$comboFrames
+  comboFrames
+}
+
+#' Load a model from the DB
+#'
+#' Internal function that makes the MongoDB Query
+#'
+#' @param modelId the modelId that you're looking for
+loadHDMModel <- function(modelId) {
   # Connect to the database
   model <- tryCatch({
     db <- getDbConnection()
@@ -197,6 +242,8 @@ loadModel <- function(modelId) {
 }
 
 #'Load expert evaluations from a MongoDB
+#'
+#' Internal function to load up raw resuls from the DB
 #'
 #'@param modelId the ID of the model you want to load
 #'@param expertId OPTIONAL get results from a specific expert
@@ -220,9 +267,45 @@ loadResults <- function(modelId, expertId) {
   evaluations
 }
 
+#' Load modelIds and names for a particular user.
+#'
+#' Use this to get model identifiers  for models created by a particular user.
+#' Note that I'm not
+#' using real paswords, I'm not encrypting anything, and I'm not enforcing
+#' much security. This is really just to keep users from messing with each
+#' other's models on a shared tenant. If you want better security then you might
+#' consider putting a proper authentication server in front of a user app or
+#' something like that.
+#'
+#' @rdname loadMyModelsFromDb
+#'
+#' @param userEmail the email of the user who build the models
+#' @param pin acts like a password, only is not really secure
+#' @export
+loadMyModelsFromDb <- function(userEmail, pin) {
+
+      allModels <- tryCatch({
+      db <- getDbConnection()
+      # Read all the entries
+      data <- db$find(
+        query = paste0('{ "userEmail" : "',userEmail,'", "pin":"',pin,'" }'),
+        fields = '{ "modelName" : true }'
+      )
+      data
+    }, error=function(e) {
+      print("ERROR loading all models")
+      print(e)
+      ""
+    })
+    allModels
+}
+
 #' Utility to load all the models ids and names
 #'
-#' This is used in the Shiny Admin app to get all of the models so we can
+#' Even though I use this, it's best not to expose it because you don't want
+#' user's messing with each other's models. I think it's ok in an evironment of
+#' total trust.
+#'
 #' Load existing models by ID
 loadAllModels <- function() {
   allModels <- tryCatch({

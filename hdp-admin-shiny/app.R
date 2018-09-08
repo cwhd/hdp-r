@@ -73,8 +73,10 @@ ui <- fluidPage(
                  dataTableOutput("tblResults"),
                  uiOutput("uiIndividualExperts")
         ),
-        tabPanel("Saved Models",
-                 actionButton("btnLoadModels", "Load all models"),
+        tabPanel("My Models",
+                 textInput("txtUserEmail", "Email", placeholder = "ex: you@domain.com"),
+                 textInput("txtUserPin", "Pin", placeholder = "4 digit pin, ex: 1234"),
+                 actionButton("btnLoadModels", "Load my models"),
                  h4("List of all previous models"),
                  uiOutput("uiDynaModels"),
                  verbatimTextOutput("modelSelectInfo"),
@@ -294,43 +296,20 @@ server <- function(input, output, session) {
   observeEvent(input$btnLoadResults, {
     print("loading results...")
     
-    expertFlatResults <- lapply(1:length(hdp$experts), function(i) { 
-      evaluations <- loadResults(hdp$currentModelId, hdp$experts[i])
-      
-      if(nrow(evaluations) > 0) {
-        nodes <- eval(parse(text = evaluations$flatResults$pathString))
-        evalWeights <- eval(parse(text = evaluations$flatResults$weight))
-        evalNorms <- eval(parse(text = evaluations$flatResults$norm))
-        sliderValues <- eval(parse(text = evaluations$flatResults$sliderValues))
-        #TODO add means and stuff to the end of this data table...
-        
-        goodDf <- data.frame(nodes, evalWeights)
-        colnames(goodDf) <- c("Criteria")
-        goodDf
-      }
-    })
-    expertFlatResults <- compact(expertFlatResults)
-    print(expertFlatResults)
-    #build the matrix for the final results    
-    flippedExpertResults <- lapply(1:length(expertFlatResults), function(i) {
-      f <- t(expertFlatResults[[i]][-1])
-      colnames(f) <- expertFlatResults[[i]][,1]
-      rownames(f) <- hdp$experts[i]
-      f
-    })
-    
+    flippedExpertResults <- getExpertEvaluationRollup(hdp$experts, hdp$currentModelId)
     resultsTable <- do.call(rbind,flippedExpertResults)
 
     #build out the tabs for the experts
     output$uiIndividualExperts <- renderUI({
       expertComboFrameTabs <- lapply(1:length(hdp$experts), function(i) { 
-        evaluations <- loadResults(hdp$currentModelId, hdp$experts[i])
-
+        
+        #get results for expert
+        evalComboFrames <- getExpertEvaluationComboFrames(hdp$experts[i],hdp$currentModelId)
         #TODO this should be the expert version of the tree...
         allNodeNames <- hdp$tree$Get(getNodeName)
 
         comboTableList <- lapply(1:length(allNodeNames), function(j) {
-          comboFrameList <- evaluations$comboFrames[[allNodeNames[j]]]
+          comboFrameList <- evalComboFrames[[allNodeNames[j]]]
           renderDataTable({
             datatable(
               as.data.frame(comboFrameList),
@@ -480,7 +459,13 @@ server <- function(input, output, session) {
     #TODO - maybe enter a user pin -not super secure...?
     observeEvent(input$btnLoadModels, {
       print("Loading Models")
-      modelData <- loadAllModels()
+      
+      userEmail <- input$txtUserEmail
+      pin <- input$txtUserPin
+      
+      modelData <- loadMyModelsFromDb(userEmail, pin)
+      #modelData <- loadAllModels()
+
       hdp$loadedModels <- modelData
       output$dtMongoOutput <- renderDataTable({
         datatable(modelData, list(mode = "single", target = "cell", selection = "single"))
@@ -503,7 +488,7 @@ server <- function(input, output, session) {
       })
             
       #get a full model from the DB
-      mod <- getFullHDMModel(selectedObjectId)
+      mod <- getFullHDMModelFromDb(selectedObjectId)
       #update the session variables
       hdp$tree <- mod$tree
       hdp$currentModelName <- mod$modelName
@@ -512,6 +497,9 @@ server <- function(input, output, session) {
       #update text inputs
       updateTextInput(session, "txtAlternatives", value = mod$alternatives)
       updateTextInput(session, "txtModelName", value = toString(hdp$currentModelName))
+
+      updateTextInput(session, "txtUserEmail", value = toString(mod$userEmail))
+      updateTextInput(session, "txtUserPin", value = toString(mod$pin))
       
       if(!is.null(mod$experts)) {
         ui.experts.build(hdp$experts)
@@ -529,24 +517,24 @@ server <- function(input, output, session) {
     saveEverything()
   })
   
+  #convert everything to JSON, save it to the DB
   saveEverything <- function() {
     dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString")
     
     fullJson <- paste0('{ "modelName" : "',input$txtModelName,'","model":', toJSON(dfTreeAsNetwork),
                        ',"alternatives":',toJSON(hdp$alternatives),
                        ',"experts":',toJSON(hdp$experts),
+                       ',"userEmail":"',input$txtUserEmail,'" ',
+                       ',"pin":"',input$txtUserPin,'"',
                        '}')
     
     if(!is.null(hdp$currentModelId)) {
-      saveData(fullJson, hdp$currentModelId)
+      saveDataToMongoDb(fullJson, hdp$currentModelId)
     } else {
-      saveData(fullJson, NULL)
+      saveDataToMongoDb(fullJson, NULL)
     }    
   }
   
-#####################################################
-# End DB Functions
-#####################################################
   #send logs to stderr for production - ugly hack
   if (!interactive()) sink(stderr(), type = "output") 
 }
