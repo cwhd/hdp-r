@@ -133,8 +133,6 @@ server <- function(input, output, session) {
     dfTreeAsNetwork$from <- lapply(dfTreeAsNetwork$from,getLastElementInPath)
     dfTreeAsNetwork$to <- lapply(dfTreeAsNetwork$to,getLastElementInPath)
     
-    #print(dfTreeAsNetwork)
-    
     dfTreeFlatResults <- ToDataFrameTree(hdp$tree,"pathString","weight","norm","sliderValues")
     dfTreeFlatResults$pathString <- lapply(dfTreeFlatResults$pathString,getLastElementInPath)
     

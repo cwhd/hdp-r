@@ -48,3 +48,5 @@ There is [a tool](http://research1.etm.pdx.edu/hdm2/) used for HDP/HDM at PSU cu
 
 Not long ago [Jacob K. Yang](https://github.com/yajacob) built out a [Python version](https://github.com/yajacob/hdm_project) of HDM.  This project is borrowing some interface elements from that project.
 
+The math work here was based on calculations provide by [Dr. Ramin Neshati](https://www.linkedin.com/in/ramin-neshati-b8a635b/)
+

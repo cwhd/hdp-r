@@ -329,17 +329,22 @@ loadAllModels <- function(dataUri) {
   allModels
 }
 
-#'Utility to get a connection to a MongoDb
+#' Utility to get a connection to a MongoDb
+#'
+#' For now this just connects to MongoDb. No authentication or anything like that.
+#' In a future update I'll let people specify better granularity, but for
+#' now this works pretty well.
+#'
+#' @param collection the collection to update. You should never worry about this
+#' as there are 2 collections used by this app, "evaluations" and "models". If you
+#' mess with that then you are going to break things.
+#' @dataUri the URI of the mongoDb to use. Note just the URL is needed for now.
 getDbConnection <- function(collection, dataUri) {
   collectionName <- if(missing(collection)) {
     "models"
   } else {
     collection
   }
-  #local
-  #dataUri <- "mongodb://localhost/hdp"
-  #for docker
-  #dataUri <- "mongodb://hdpdb/hdp"
   db <- mongo(collection = collectionName,
               url = dataUri)
 }
