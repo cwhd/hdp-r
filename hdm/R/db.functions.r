@@ -14,13 +14,13 @@
 #' @rdname getExpertResultsAsTreeFromDb
 #'
 #' @example
-#'getExpertResultsAsTreeFromDb("5b85894efccdf91528004090","davis36@pdx.edu")
+#'getExpertResultsAsTreeFromDb("5b85894efccdf91528004090","davis36@pdx.edu","http://hdp/hdp")
 #'
 #' @param modelId the modelId for the mode you're looking for
 #' @param expertId the expertId for the expert you're looking for
 #' @export
-getExpertResultsAsTreeFromDb <- function(modelId, expertId) {
-  evalValues <- loadResults(modelId, expertId)
+getExpertResultsAsTreeFromDb <- function(modelId, expertId, dataUri) {
+  evalValues <- loadResults(modelId, expertId, dataUri)
   expertValues.exists <- FALSE
 
   #if we have an eval, preload it
@@ -55,9 +55,9 @@ getExpertResultsAsTreeFromDb <- function(modelId, expertId) {
 #'
 #' @param modelId the modelId you're looking for
 #' @export
-getModelAsTreeWithAlternativesFromDb <- function(modelId) {
+getModelAsTreeWithAlternativesFromDb <- function(modelId, dataUri) {
   alternatives <- NULL
-  mod <- loadHDMModel(modelId)
+  mod <- loadHDMModel(modelId, dataUri)
   #rebuildDataFrameForHDMTree(mod)
   alternatives <- eval(parse(text = mod$alternatives))
 
@@ -85,9 +85,9 @@ getModelAsTreeWithAlternativesFromDb <- function(modelId) {
 #'
 #' @param modelId the modelId that you want to get
 #' @export
-getFullHDMModelFromDb <- function(modelId) {
+getFullHDMModelFromDb <- function(modelId, dataUri) {
 
-  mod <- loadHDMModel(modelId)
+  mod <- loadHDMModel(modelId, dataUri)
 
   alternatives <- eval(parse(text = mod$alternatives))
   modelName <- mod$modelName
@@ -95,12 +95,14 @@ getFullHDMModelFromDb <- function(modelId) {
   userEmail <- mod$userEmail
   pin <- mod$pin
 
+  #TODO make this work when there is only 1 expert
   experts <- if(!is.null(mod$experts)) {
-    if(length(mod$experts) < 1) {
-      eval(parse(text = mod$experts))
-    } else {
-      mod$experts
-    }
+    eval(parse(text = mod$experts))
+    #if(length(mod$experts) > 1) {
+    #  eval(parse(text = mod$experts))
+    #} else {
+    #  mod$experts
+    #}
   } else {
     NULL
   }
@@ -130,9 +132,9 @@ getFullHDMModelFromDb <- function(modelId) {
 #' @param expertId the ID of the expert to associate this evaluation with
 #' @param modelId the ID of the model being evaluated
 #' @export
-saveHdmEvaluationToDb <- function(data, expertId, modelId) {
+saveHdmEvaluationToDb <- function(data, expertId, modelId, dataUri) {
   dbInsert <- tryCatch({
-    db <-   getDbConnection("evaluations")
+    db <-   getDbConnection("evaluations", dataUri)
 
     db$update(query = paste0('{ "expertId" : "',expertId,'", "modelId":"',modelId,'" }') ,
               update = paste0('{ "$set" : ',data,'}'),
@@ -144,18 +146,20 @@ saveHdmEvaluationToDb <- function(data, expertId, modelId) {
   })
 }
 
-#'Save all data pertaining to the definition of a model to MongoDB
+#' Save all data pertaining to the definition of a model to MongoDB
 #'
-#'Send in JSON data, this will save it to MongoDB. I love MongoDB because it's
-#'web scale: https://www.youtube.com/watch?v=b2F-DItXtZs If you don't for some
-#'reason then feel free to submit a PR to this repo for something else.
+#' Send in JSON data, this will save it to MongoDB. I love MongoDB because it's
+#' web scale: https://www.youtube.com/watch?v=b2F-DItXtZs If you don't for some
+#' reason then feel free to submit a PR to this repo for something else.
 #'
-#'@param data the full set of data to save in JSON format
-#'@param id the ID of the model to update. If no ID is passed we will insert a record
-#'@export
-saveDataToMongoDb <- function(data, id) {
+#' @rdname saveHDMDataToMongoDb
+#'
+#' @param data the full set of data to save in JSON format
+#' @param id the ID of the model to update. If no ID is passed we will insert a record
+#' @export
+saveHDMDataToMongoDb <- function(data, id, dataUri) {
   dbInsert <- tryCatch({
-    db <- getDbConnection()
+    db <- getDbConnection(dataUri = dataUri)
     if(!is.null(id)) {
       db$update(query = paste0('{ "_id" : {"$oid" : "',id,'"}}') ,
                 update = paste0('{ "$set" : ',data,'}'))
@@ -179,9 +183,9 @@ saveDataToMongoDb <- function(data, id) {
 #' @param experts collection of experts to get data for
 #' @param modelId modelId that you're working with
 #' @export
-getExpertEvaluationRollup <- function(experts, modelId) {
+getExpertEvaluationRollup <- function(experts, modelId, dataUri) {
   expertFlatResults <- lapply(1:length(experts), function(i) {
-    evaluations <- loadResults(modelId, experts[i])
+    evaluations <- loadResults(modelId, experts[i], dataUri)
 
     if(nrow(evaluations) > 0) {
       nodes <- eval(parse(text = evaluations$flatResults$pathString))
@@ -214,8 +218,9 @@ getExpertEvaluationRollup <- function(experts, modelId) {
 #'
 #' @param expertId the expert you're looking for
 #' @param modelId the model you're looking for
-getExpertEvaluationComboFrames <- function(expertId, modelId) {
-  evaluations <- loadResults(modelId, expertId)
+#' @export
+getExpertEvaluationComboFrames <- function(expertId, modelId, dataUri) {
+  evaluations <- loadResults(modelId, expertId, dataUri)
   comboFrames <- evaluations$comboFrames
   comboFrames
 }
@@ -225,10 +230,10 @@ getExpertEvaluationComboFrames <- function(expertId, modelId) {
 #' Internal function that makes the MongoDB Query
 #'
 #' @param modelId the modelId that you're looking for
-loadHDMModel <- function(modelId) {
+loadHDMModel <- function(modelId, dataUri) {
   # Connect to the database
   model <- tryCatch({
-    db <- getDbConnection()
+    db <- getDbConnection(dataUri = dataUri)
     data <- db$find(query = paste0('{"_id" : {"$oid":"',modelId,'"}}'))
     data
   },
@@ -247,9 +252,9 @@ loadHDMModel <- function(modelId) {
 #'
 #'@param modelId the ID of the model you want to load
 #'@param expertId OPTIONAL get results from a specific expert
-loadResults <- function(modelId, expertId) {
+loadResults <- function(modelId, expertId, dataUri) {
   evaluations <- tryCatch({
-    db <- getDbConnection("evaluations")
+    db <- getDbConnection("evaluations", dataUri)
     if(missing(expertId)) {
       data <- db$find(query = paste0('{"modelId" : "',modelId,'"}'))
       data
@@ -282,10 +287,10 @@ loadResults <- function(modelId, expertId) {
 #' @param userEmail the email of the user who build the models
 #' @param pin acts like a password, only is not really secure
 #' @export
-loadMyModelsFromDb <- function(userEmail, pin) {
+loadMyModelsFromDb <- function(userEmail, pin, dataUri) {
 
       allModels <- tryCatch({
-      db <- getDbConnection()
+      db <- getDbConnection(dataUri = dataUri)
       # Read all the entries
       data <- db$find(
         query = paste0('{ "userEmail" : "',userEmail,'", "pin":"',pin,'" }'),
@@ -307,9 +312,9 @@ loadMyModelsFromDb <- function(userEmail, pin) {
 #' total trust.
 #'
 #' Load existing models by ID
-loadAllModels <- function() {
+loadAllModels <- function(dataUri) {
   allModels <- tryCatch({
-    db <- getDbConnection()
+    db <- getDbConnection(dataUri = dataUri)
     # Read all the entries
     data <- db$find(
       query = "{}",
@@ -325,14 +330,14 @@ loadAllModels <- function() {
 }
 
 #'Utility to get a connection to a MongoDb
-getDbConnection <- function(collection) {
+getDbConnection <- function(collection, dataUri) {
   collectionName <- if(missing(collection)) {
     "models"
   } else {
     collection
   }
   #local
-  dataUri <- "mongodb://localhost/hdp"
+  #dataUri <- "mongodb://localhost/hdp"
   #for docker
   #dataUri <- "mongodb://hdpdb/hdp"
   db <- mongo(collection = collectionName,
@@ -346,7 +351,6 @@ getDbConnection <- function(collection) {
 #'@return A \code{\link{data.tree}} containing the model
 #'
 #'@rdname rebuildDataFrameForHDMTree
-#'@export
 rebuildDataFrameForHDMTree <- function(mod) {
   froms <- eval(parse(text = mod$model$from))
   tos <- eval(parse(text = mod$model$to))

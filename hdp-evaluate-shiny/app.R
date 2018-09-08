@@ -51,6 +51,10 @@ server <- function(input, output, session) {
   hdp=reactiveValues(tree=NULL, alternatives=NULL, evaluationId=NULL, 
                      expertId=NULL, modelId=NULL)
   
+  
+  dataUri <- "mongodb://localhost/hdp" #local db
+  #dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
+  
   #Load the form from the query string
   observeEvent(input$btnLoadFromQueryString, {
     query <- getQueryString()
@@ -62,9 +66,9 @@ server <- function(input, output, session) {
     currentExpert <- query[["expertId"]]
     
     #get the tree 
-    tree <- getExpertResultsAsTreeFromDb(requestedModelId, currentExpert)
+    tree <- getExpertResultsAsTreeFromDb(requestedModelId, currentExpert, dataUri)
     if(is.null(tree)) {
-      tree <- getModelAsTreeWithAlternativesFromDb(requestedModelId)
+      tree <- getModelAsTreeWithAlternativesFromDb(requestedModelId, dataUri)
     }
 
     ui.evaluation.build.byTree(tree)
@@ -146,7 +150,7 @@ server <- function(input, output, session) {
                        ',"flatResults":',toJSON(dfTreeFlatResults),
                        ',"comboFrames":',toJSON(comboFrameList),
                        '}')
-    saveHdmEvaluationToDb(fullJson, hdp$expertId, hdp$modelId)
+    saveHdmEvaluationToDb(fullJson, hdp$expertId, hdp$modelId, dataUri)
     
     #TODO check tree to make sure we have reasonable values for everything
     output$uiMessages <- renderUI({

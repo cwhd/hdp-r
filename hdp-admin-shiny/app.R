@@ -42,8 +42,8 @@ ui <- fluidPage(
                    h4("Decision Tree"),
                    actionButton("btnSaveModel", "Save Model"),
                    actionButton("btnRebuildTree", "Rebuild Tree From Form"),
-                   actionButton("btnLoadExample", "Load Example"),
-                   uiOutput("uiExpertUrl")
+                   actionButton("btnLoadExample", "Load Example")
+                   #uiOutput("uiExpertUrl")
                  ),
                  grVizOutput("xx"),
                  wellPanel(
@@ -115,6 +115,9 @@ server <- function(input, output, session) {
                      alternatives=NULL,loadedModels=NULL,currentModelName=NULL,
                      currentModelId=NULL, expertList = NULL)
   
+  dataUri <- "mongodb://localhost/hdp" #local db
+  #dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
+
   #TODO this needs to come from a config or env variable
   evalUrl <- "http://localhost:3838"
   #This is a bit of a hack, but these defaults make managing state easier
@@ -296,7 +299,7 @@ server <- function(input, output, session) {
   observeEvent(input$btnLoadResults, {
     print("loading results...")
     
-    flippedExpertResults <- getExpertEvaluationRollup(hdp$experts, hdp$currentModelId)
+    flippedExpertResults <- getExpertEvaluationRollup(hdp$experts, hdp$currentModelId, dataUri)
     resultsTable <- do.call(rbind,flippedExpertResults)
 
     #build out the tabs for the experts
@@ -304,7 +307,7 @@ server <- function(input, output, session) {
       expertComboFrameTabs <- lapply(1:length(hdp$experts), function(i) { 
         
         #get results for expert
-        evalComboFrames <- getExpertEvaluationComboFrames(hdp$experts[i],hdp$currentModelId)
+        evalComboFrames <- getExpertEvaluationComboFrames(hdp$experts[i],hdp$currentModelId, dataUri)
         #TODO this should be the expert version of the tree...
         allNodeNames <- hdp$tree$Get(getNodeName)
 
@@ -463,14 +466,22 @@ server <- function(input, output, session) {
       userEmail <- input$txtUserEmail
       pin <- input$txtUserPin
       
-      modelData <- loadMyModelsFromDb(userEmail, pin)
+      modelData <- loadMyModelsFromDb(userEmail, pin, dataUri)
       #modelData <- loadAllModels()
+      
+      print("----modeldata:")
+      print(modelData)
 
       hdp$loadedModels <- modelData
-      output$dtMongoOutput <- renderDataTable({
-        datatable(modelData, list(mode = "single", target = "cell", selection = "single"))
-      }, escape = FALSE, server = FALSE
-      )
+      if(nrow(modelData) < 1) {
+        output$dtMongoOutput <- renderUI({
+          h2("No models found for that email/pin combination")
+        })
+      } else {
+        output$dtMongoOutput <- renderDataTable({
+          datatable(modelData, list(mode = "single", target = "cell", selection = "single"))
+        }, escape = FALSE, server = FALSE)
+      }
     })
   })
   
@@ -483,12 +494,12 @@ server <- function(input, output, session) {
       hdp$currentModelId <- selectedObjectId
       
       #build the expert URL
-      output$uiExpertUrl <- renderUI({
-        tags$a(href=paste0(evalUrl,"?modelId=",selectedObjectId),paste0("Expert URL: ",evalUrl,"?modelId=",selectedObjectId))
-      })
+      #output$uiExpertUrl <- renderUI({
+      #  tags$a(href=paste0(evalUrl,"?modelId=",selectedObjectId),paste0("Expert URL: ",evalUrl,"?modelId=",selectedObjectId))
+      #})
             
       #get a full model from the DB
-      mod <- getFullHDMModelFromDb(selectedObjectId)
+      mod <- getFullHDMModelFromDb(selectedObjectId, dataUri)
       #update the session variables
       hdp$tree <- mod$tree
       hdp$currentModelName <- mod$modelName
@@ -529,9 +540,9 @@ server <- function(input, output, session) {
                        '}')
     
     if(!is.null(hdp$currentModelId)) {
-      saveDataToMongoDb(fullJson, hdp$currentModelId)
+      saveHDMDataToMongoDb(fullJson, hdp$currentModelId, dataUri)
     } else {
-      saveDataToMongoDb(fullJson, NULL)
+      saveHDMDataToMongoDb(fullJson, NULL, dataUri)
     }    
   }
   
