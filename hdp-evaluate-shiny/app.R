@@ -1,6 +1,6 @@
 # HDP-evaluate-shiny
 # This shiny app is intended for experts to express their opinion by rating
-# - decision options against each other
+# decision options against each other
 
 library(shiny)
 library(data.tree)  #tree functionality

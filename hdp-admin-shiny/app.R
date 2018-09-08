@@ -367,6 +367,7 @@ server <- function(input, output, session) {
       )
     ))
   })
+  
   ##################################################
   # -> slider functions
   ##################################################
@@ -381,7 +382,7 @@ server <- function(input, output, session) {
     })
     criteriaDfList
   }
-  
+  #build out the evaluation form for experts
   ui.evaluation.build.byNode <- function(tree, alternatives) {
     print("ui.evaluation.build.byNode")
     nodes <- tree$Get('name')
@@ -399,7 +400,7 @@ server <- function(input, output, session) {
       ui.nodesliders.observers.add(FindNode(node = tree, name = nodes[i]), alternatives)
     })
   }
-  
+  #add observers to all the sliders we generated
   ui.nodesliders.observers.add <- function(node, alternatives) {
     combos <- getUniqueChildCombinations(node, alternatives)
     if(length(combos) > 0) {
@@ -494,31 +495,30 @@ server <- function(input, output, session) {
     s = input$dtMongoOutput_rows_selected
     if (length(s)) {
       selectedObjectId <- hdp$loadedModels[[s,"_id"]] #get objectId based on selected index
-      mod <- loadModel(selectedObjectId)
+      hdp$currentModelId <- selectedObjectId
       
       #build the expert URL
-      hdp$currentModelId <- selectedObjectId
       output$uiExpertUrl <- renderUI({
         tags$a(href=paste0(evalUrl,"?modelId=",selectedObjectId),paste0("Expert URL: ",evalUrl,"?modelId=",selectedObjectId))
       })
-      
-      goodDf <- RebuildDataFrameForHDMTree(mod)
-      hdp$tree <- FromDataFrameNetwork(goodDf)
-      
+            
+      #get a full model from the DB
+      mod <- getFullHDMModel(selectedObjectId)
+      #update the session variables
+      hdp$tree <- mod$tree
       hdp$currentModelName <- mod$modelName
-      
-      updateTextInput(session, "txtModelName", value = toString(hdp$currentModelName))
-      #load the alternatives
+      hdp$alternatives <- mod$alternatives #eval(parse(text = mod$alternatives))
+      hdp$experts <- mod$experts
+      #update text inputs
       updateTextInput(session, "txtAlternatives", value = mod$alternatives)
-      hdp$alternatives <- eval(parse(text = mod$alternatives))
+      updateTextInput(session, "txtModelName", value = toString(hdp$currentModelName))
+      
       if(!is.null(mod$experts)) {
-        hdp$experts <- eval(parse(text = mod$experts))
         ui.experts.build(hdp$experts)
       } else {
         output$uiExperts <- renderUI({})
-        hdp$experts <- NULL
       }
-
+      #update the page
       ui.refresh.fromTree(hdp$tree, hdp$alternatives)
       ui.tree.render(hdp$tree)
     }

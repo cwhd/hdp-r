@@ -58,7 +58,7 @@ getExpertResultsAsTree <- function(modelId, expertId) {
 getModelAsTreeWithAlternatives <- function(modelId) {
   alternatives <- NULL
   mod <- loadModel(modelId)
-  rebuildDataFrameForHDMTree(mod)
+  #rebuildDataFrameForHDMTree(mod)
   alternatives <- eval(parse(text = mod$alternatives))
 
   tree <- FromDataFrameNetwork(rebuildDataFrameForHDMTree(mod))
@@ -74,6 +74,38 @@ getModelAsTreeWithAlternatives <- function(modelId) {
   }
 
   tree
+}
+
+#' Get a full HDM model with alternatives and experts
+#'
+#' Based on a modelId get an ad-hoc class that has everything we
+#' need for an HDM based model
+#'
+#' @param modelId the modelId that you want to get
+getFullHDMModel <- function(modelId) {
+
+  mod <- loadModel(modelId)
+
+  alternatives <- eval(parse(text = mod$alternatives))
+  modelName <- mod$modelName
+  tree <- FromDataFrameNetwork(rebuildDataFrameForHDMTree(mod))
+
+  experts <- if(!is.null(mod$experts)) {
+    eval(parse(text = mod$experts))
+  } else {
+    NULL
+  }
+
+  hdm <- list(
+    alternatives = alternatives,
+    modelName = modelName,
+    tree = tree,
+    experts = experts
+  )
+
+  class(hdm) <- append(class(hdm),"HDM")
+
+  return(hdm)
 }
 
 #'Save an expert's evaluation to the DB
