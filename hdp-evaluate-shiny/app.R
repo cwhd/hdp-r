@@ -60,55 +60,12 @@ server <- function(input, output, session) {
     #variables from the query string
     requestedModelId <- query[["modelId"]]
     currentExpert <- query[["expertId"]]
-
-    evalValues <- loadResults(requestedModelId, currentExpert)
-    expertValues.exists <- FALSE
-    alternatives <- NULL
-
-    #if we have an eval, preload it
-    #TODO need better error handling if the model comes back and can't load...
-    goodDf <- if(nrow(evalValues) > 0) {
-      #print(evalValues)
-      print("------data found for this expert, loading it...")
-      expertValues.exists <- TRUE
-      #print(evalValues)
-      #TODO move this to a function somewhere else
-      froms <- eval(parse(text = evalValues$results$from))
-      tos <- eval(parse(text = evalValues$results$to))
-      pathStrings <- eval(parse(text = evalValues$results$pathString))
-      evalWeights <- eval(parse(text = evalValues$results$weight))
-      evalNorms <- eval(parse(text = evalValues$results$norm))
-      sliderValues <- eval(parse(text = evalValues$results$sliderValues))
-      
-      data.frame(froms,tos,pathStrings, evalWeights, evalNorms, sliderValues)
-    } else {
-      #there is no existing evaluation data for this expert so just load the model
-      print("----no eval found, loading model")
-      mod <- loadModel(requestedModelId)
-      #TODO replaced with helper function below...
-      #froms <- eval(parse(text = mod$model$from))
-      #tos <- eval(parse(text = mod$model$to))
-      #pathStrings <- eval(parse(text = mod$model$pathString))
-      
-      alternatives <- eval(parse(text = mod$alternatives))
-
-      #data.frame(froms,tos,pathStrings)
-      RebuildDataFrameForHDMTree(mod)
-    }
-    print("------got data set, buiding tree")
-    tree <- FromDataFrameNetwork(goodDf)
     
-    #add alternatives as nodes in the tree
-    if(!expertValues.exists && !is.null(alternatives)) {
-      print("----adding new level of nodes to the tree...")
-      bottomNodes <- getNodesAtLevel(tree, tree$height)
-      #print(bottomNodes)
-      lapply(1:nrow(bottomNodes),function(i) {
-        lapply(1:length(alternatives), function(j) {
-          FindNode(node=tree,name = bottomNodes[[i,"name"]])$AddChildNode(child=Node$new(trim(alternatives[[j]])))
-        })
-      })
-    } 
+    #get the tree 
+    tree <- getExpertResultsAsTree(requestedModelId, currentExpert)
+    if(is.null(tree)) {
+      tree <- getModelAsTreeWithAlternatives(requestedModelId)
+    }
 
     ui.evaluation.build.byTree(tree)
 

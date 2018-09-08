@@ -1,6 +1,80 @@
 ##########################################################
-# -> Helper functions to get and save stuff from the DB <-
+# -> Helper functions to get or save data <-
+
+# TODO I need to update these so the HDM module just worries about
+# passing JSON back and forth. This should abstract away the DB
+# so I can get this thing up into CRAN
 ##########################################################
+
+#' Get an expert's evaluation in tree form
+#'
+#' Given an expertId and modelId, get the evaluation for that expert
+#' and return it in a tree context
+#'
+#' @rdname getExpertResultsAsTree
+#'
+#' @example
+#'getExpertResultsAsTree("5b85894efccdf91528004090","davis36@pdx.edu")
+#'
+#' @param modelId the modelId for the mode you're looking for
+#' @param expertId the expertId for the expert you're looking for
+#' @export
+getExpertResultsAsTree <- function(modelId, expertId) {
+  evalValues <- loadResults(modelId, expertId)
+  expertValues.exists <- FALSE
+
+  #if we have an eval, preload it
+  if(nrow(evalValues) > 0) {
+    froms <- eval(parse(text = evalValues$results$from))
+    tos <- eval(parse(text = evalValues$results$to))
+    pathStrings <- eval(parse(text = evalValues$results$pathString))
+    evalWeights <- eval(parse(text = evalValues$results$weight))
+    evalNorms <- eval(parse(text = evalValues$results$norm))
+    sliderValues <- eval(parse(text = evalValues$results$sliderValues))
+
+    goodDf <- data.frame(froms,tos,pathStrings, evalWeights, evalNorms, sliderValues)
+    tree <- FromDataFrameNetwork(goodDf)
+
+    tree
+
+    } else {
+
+    NULL
+  }
+}
+
+#' Get the model in tree form with Alternatives as the bottom leaves
+#'
+#' Get a model in tree form. If there are alternatives add them to the bottom
+#' of the tree.
+#'
+#' @rdname getModelAsTree
+#'
+#' @example
+#' getModelAsTree("5b85894efccdf91528004090")
+#'
+#' @param modelId the modelId you're looking for
+#' @export
+getModelAsTreeWithAlternatives <- function(modelId) {
+  alternatives <- NULL
+  mod <- loadModel(modelId)
+  rebuildDataFrameForHDMTree(mod)
+  alternatives <- eval(parse(text = mod$alternatives))
+
+  tree <- FromDataFrameNetwork(rebuildDataFrameForHDMTree(mod))
+
+  if(!is.null(alternatives)) {
+    print("----adding new level of nodes to the tree...")
+    bottomNodes <- getNodesAtLevel(tree, tree$height)
+    lapply(1:nrow(bottomNodes),function(i) {
+      lapply(1:length(alternatives), function(j) {
+        FindNode(node=tree,name = bottomNodes[[i,"name"]])$AddChildNode(child=Node$new(trim(alternatives[[j]])))
+      })
+    })
+  }
+
+  tree
+}
 
 #'Save an expert's evaluation to the DB
 #'
@@ -156,9 +230,9 @@ getDbConnection <- function(collection) {
 #'@param model definition from database
 #'@return A \code{\link{data.tree}} containing the model
 #'
-#'@rdname RebuildDataFrameForHDMTree
+#'@rdname rebuildDataFrameForHDMTree
 #'@export
-RebuildDataFrameForHDMTree <- function(mod) {
+rebuildDataFrameForHDMTree <- function(mod) {
   froms <- eval(parse(text = mod$model$from))
   tos <- eval(parse(text = mod$model$to))
   pathStrings <- eval(parse(text = mod$model$pathString))
