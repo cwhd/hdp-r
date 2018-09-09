@@ -5,11 +5,14 @@
 \title{Given a populated matrix, divide the comparisons against
 each other to get relative weights}
 \usage{
-matrix.calculate(A)
+matrix.calculate(B)
 }
 \arguments{
 \item{A}{the matrix to operate on}
 }
 \description{
 This is only used internally as the second part of the calculation
+This returns a matrix with the final calculation.
+TODO I think I should break this into more than one step, that way
+I can add inconsistency to the return value
 }

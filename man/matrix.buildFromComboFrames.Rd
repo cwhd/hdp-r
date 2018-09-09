@@ -10,8 +10,9 @@ matrix.buildFromComboFrames(names, comboFrames)
 \arguments{
 \item{names}{the names of the elements being compared in a pairwise manner}
 
-\item{comboFrames}{the frames to transform into a matrix}
+\item{comboFrames}{the frames to transform into a matrix
+TODO this should do step B also}
 }
 \description{
-This is only used internally as the first step in the calculation
+This is only used internally as the first and second step in the calculation
 }

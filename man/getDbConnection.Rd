@@ -10,6 +10,8 @@ getDbConnection(collection, dataUri)
 \item{collection}{the collection to update. You should never worry about this
 as there are 2 collections used by this app, "evaluations" and "models". If you
 mess with that then you are going to break things.}
+
+\item{dataUri}{the URI of the mongoDb to use. Note just the URL is needed for now.}
 }
 \description{
 For now this just connects to MongoDb. No authentication or anything like that.

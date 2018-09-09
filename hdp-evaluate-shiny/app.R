@@ -52,8 +52,8 @@ server <- function(input, output, session) {
                      expertId=NULL, modelId=NULL)
 
 
-  #dataUri <- "mongodb://localhost/hdp" #local db
-  dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
+  dataUri <- "mongodb://localhost/hdp" #local db
+  #dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
 
   #Load the form from the query string
   observeEvent(input$btnLoadFromQueryString, {
@@ -112,7 +112,6 @@ server <- function(input, output, session) {
   observeEvent(input$btnSaveAndCalculate, {
     #run the calculations across nodes in the tree
 
-    #hdp$tree <- calculateHDMWeights(hdp$tree)
     #used to reload the form with values later if we need to
     comboFrameList <- hdp$tree$Get(expert.comboFrames.generate, filterFun = isNotRoot)
     print("-------comboFrameList:")
@@ -120,7 +119,7 @@ server <- function(input, output, session) {
 
     hdp$tree <- calculateHDMWeights(hdp$tree, comboFrameList)
     print("----bunch of new stuff in the tree")
-    print(hdp$tree, "norm","weight")
+    print(hdp$tree, "norm","weight","inconsistency")
 
     #get the raw slider values and save them so we can pre-populate the form
     hdp$tree$Do(function(node) {

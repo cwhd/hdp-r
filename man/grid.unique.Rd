@@ -10,6 +10,8 @@ grid.unique(x, y, include.equals = FALSE)
 \item{x}{first list to compare}
 
 \item{y}{second list to compare}
+
+\item{include.equals}{not sure if we even need this anymore}
 }
 \description{
 This function will take in 2 lists and return the unique set of combinations

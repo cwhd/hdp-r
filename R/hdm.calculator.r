@@ -17,8 +17,16 @@
 calculateHDMWeights <- function(tree, comboFrames) {
 
   tree$Do(function(node) {
-    node$norm <-  normalizeValueForNode(node, comboFrames[[node$name]])
+    parent <- node$parent
+    #build the comparison frames into a matrix
+    matrixColumns <- lapply(1:length(parent$children), function(i){
+      parent$children[[i]]$name
+    })
+    populatedMatrixAB <- matrix.buildFromComboFrames(matrixColumns,comboFrames[[node$name]])
+
+    node$norm <-  normalizeValueForNode(node, populatedMatrixAB)
     node$weight <-  finalizeWeightsForNode(node)
+    node$inconsistency <- inconsistency.calculate(populatedMatrixAB)
   }, filterFun = isNotRoot)
 
   tree
@@ -31,15 +39,16 @@ calculateHDMWeights <- function(tree, comboFrames) {
 #'
 #' @param currentNode the node to operate on
 #' @param comboFrames the associated frames to use in the calculation
-normalizeValueForNode <- function(currentNode, comboFrames) {
+normalizeValueForNode <- function(currentNode, populatedMatrix) {
   #get parent
-  parent <- currentNode$parent
-  #build the comparison frames into a matrix
-  matrixColumns <- lapply(1:length(parent$children), function(i){
-    parent$children[[i]]$name
-  })
-  populatedMatrix <- matrix.buildFromComboFrames(matrixColumns,comboFrames)
+  #parent <- currentNode$parent
+  ##build the comparison frames into a matrix
+  #matrixColumns <- lapply(1:length(parent$children), function(i){
+  #  parent$children[[i]]$name
+  #})
+  #populatedMatrix <- matrix.buildFromComboFrames(matrixColumns,comboFrames)
   #now that we have the matrix of comparisons, run the calculations
+  #calculations <- matrix.calculate(populatedMatrix)
   calculatedMatrix <- matrix.calculate(populatedMatrix)
   #return calculated values for this node
   return(calculatedMatrix[[currentNode$name,2]])
@@ -59,7 +68,7 @@ finalizeWeightsForNode <- function(node) {
 #' Given a set of names and dataframes with evaluation data,
 #' build out the first matrix to operate on
 #'
-#' This is only used internally as the first step in the calculation
+#' This is only used internally as the first and second step in the calculation
 #'
 #' @param names the names of the elements being compared in a pairwise manner
 #' @param comboFrames the frames to transform into a matrix
@@ -74,26 +83,48 @@ matrix.buildFromComboFrames <- function(names,comboFrames) {
     A[colnames(df)[1],colnames(df)[2]] <- df[[1,1]]
     A[colnames(df)[2],colnames(df)[1]] <- df[[1,2]]
   }
-  A
-}
-
-#' Given a populated matrix, divide the comparisons against
-#' each other to get relative weights
-#'
-#' This is only used internally as the second part of the calculation
-#'
-#' @param A the matrix to operate on
-matrix.calculate <- function(A) {
-  #calculate everything else
+  #A
   B <- t(A) / A
   diag(B) <- 1
+  B
+
+}
+
+#' Calculate inconsistency
+#'
+#' Helps determine how reliable this expert is
+#'
+#' @param B the matrix after it's gone through the first 2 steps of the calculation
+inconsistency.calculate <- function(B){
   B.norm <- sweep(B,2,colSums(B),`/`)
   nMeans <- rowMeans(B.norm)
   nSd <- apply(B.norm,1,sd)
   nVar <- apply(B.norm,1,var)
   inconsistency <- sqrt(sum(nVar) * .25)
 
-  B.norm
+  inconsistency
+}
+
+#' Given a populated matrix, divide the comparisons against
+#' each other to get relative weights
+#'
+#' This is only used internally as the final part of the calculation. The first
+#' 2 steps are used to them get the normalized value for the nodes
+#'
+#' @param A the matrix to operate on
+matrix.calculate <- function(B) {
+  #calculate everything else
+  #B <- matrix.calculate.b(A)
+
+  #B <- t(A) / A
+  #diag(B) <- 1
+  #B.norm <- sweep(B,2,colSums(B),`/`)
+  #nMeans <- rowMeans(B.norm)
+  #nSd <- apply(B.norm,1,sd)
+  #nVar <- apply(B.norm,1,var)
+  #inconsistency <- sqrt(sum(nVar) * .25)
+
+  #B.norm
   #divide col1 by col2, col2 by col3, etc to create Matrix C
   C <- matrix(ncol = ncol(B)-1, nrow = nrow(B))
   for(c in 1:ncol(C)) {

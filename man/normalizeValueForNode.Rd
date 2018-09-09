@@ -4,7 +4,7 @@
 \alias{normalizeValueForNode}
 \title{Calculate weight for requested node}
 \usage{
-normalizeValueForNode(currentNode, comboFrames)
+normalizeValueForNode(currentNode, populatedMatrix)
 }
 \arguments{
 \item{currentNode}{the node to operate on}
