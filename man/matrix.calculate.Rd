@@ -11,8 +11,6 @@ matrix.calculate(B)
 \item{A}{the matrix to operate on}
 }
 \description{
-This is only used internally as the second part of the calculation
-This returns a matrix with the final calculation.
-TODO I think I should break this into more than one step, that way
-I can add inconsistency to the return value
+This is only used internally as the final part of the calculation. The first
+2 steps are used to them get the normalized value for the nodes
 }

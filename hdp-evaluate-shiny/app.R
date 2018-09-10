@@ -13,8 +13,8 @@ library(hdpr)       #core modules
 ui <- fluidPage(
 
    titlePanel("HDP Model Evaluation"),
-   sidebarLayout(
-      sidebarPanel(
+   tabsetPanel(
+      tabPanel("Instructions",
         h3("Instructions"),
         p("In this method, two elements are compared with each other at a time.
           The expert allocates a total of 100 points to the two elements in the
@@ -30,13 +30,12 @@ ui <- fluidPage(
         ),
         actionButton("btnLoadFromQueryString", "Ready? Load the evaluations!")
       ),
-
       # Show a plot of the generated distribution
-      mainPanel(
+      tabPanel("Comparisons",
         h4("Compare each item against the other"),
         fluidRow(
-          column(7, uiOutput("uiEvaluateCriteria")),
-          column(5,
+          column(4, uiOutput("uiEvaluateCriteria")),
+          column(8,
                  actionButton("btnSaveAndCalculate", "Submit your evaluation"),
                  uiOutput("uiMessages"),
                  grVizOutput("modelTree")
@@ -73,6 +72,8 @@ server <- function(input, output, session) {
 
     ui.evaluation.build.byTree(tree)
 
+    ui.expertTab.observer.add()
+
     hdp$tree <- tree
     hdp$alternatives <- NULL# alternatives
     hdp$expertId <- currentExpert
@@ -80,6 +81,7 @@ server <- function(input, output, session) {
 
     print("-----------StRT")
 
+    #Prune(hdp$tree, fiterFun = isNotLeaf)
     ui.tree.render(hdp$tree)
   })
 
@@ -118,8 +120,6 @@ server <- function(input, output, session) {
     print(comboFrameList)
 
     hdp$tree <- calculateHDMWeights(hdp$tree, comboFrameList)
-    print("----bunch of new stuff in the tree")
-    print(hdp$tree, "norm","weight","inconsistency")
 
     #get the raw slider values and save them so we can pre-populate the form
     hdp$tree$Do(function(node) {
@@ -127,12 +127,12 @@ server <- function(input, output, session) {
     }, filterFun = isNotLeaf)
 
     #convert the tree to a data frame and save it to the DB
-    dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString","weight","norm","sliderValues")
+    dfTreeAsNetwork <- ToDataFrameNetwork(hdp$tree, "pathString","level","weight","norm","sliderValues","inconsistency")
     #I am not sure why I have to do this, annoying
     dfTreeAsNetwork$from <- lapply(dfTreeAsNetwork$from,getLastElementInPath)
     dfTreeAsNetwork$to <- lapply(dfTreeAsNetwork$to,getLastElementInPath)
 
-    dfTreeFlatResults <- ToDataFrameTree(hdp$tree,"pathString","weight","norm","sliderValues")
+    dfTreeFlatResults <- ToDataFrameTree(hdp$tree,"pathString","level","weight","norm","sliderValues","inconsistency")
     dfTreeFlatResults$pathString <- lapply(dfTreeFlatResults$pathString,getLastElementInPath)
 
     #print("---maybe this")
@@ -172,10 +172,12 @@ server <- function(input, output, session) {
 
   #TODO probably need to add level here to accomodate duplicate node names
   slider.new <- function(node) {
+    print(paste0("------Slider.New: ",node$name))
+    print("---slider values node:")
+    print(node$sliderValues)
     combos <- getUniqueChildCombinations(node, NULL)
     rawValues <- sapply(unlist(strsplit(as.character(node$sliderValues), ",")),trim)
-    print(node$name)
-    print("--raw values??")
+    print("---raw values:")
     print(rawValues)
     #TODO may need to make sure there are no spaces or special chars in the name
     sliders <- lapply(1:nrow(combos), function(i) {
@@ -184,11 +186,11 @@ server <- function(input, output, session) {
       sliderValue <- 50
       sliderValue <- if(!is.null(rawValues[i])) {
         rawValues[i]
-      } #else {
-        #50
-      ##}
-      #print("----sliderValue")
-      #print(sliderValue)
+      } else {
+        50
+      }
+      print("----sliderValue")
+      print(sliderValue)
 
       fluidRow(
         column(1,
@@ -216,18 +218,27 @@ server <- function(input, output, session) {
     output$uiEvaluateCriteria <- renderUI({
       sliders <- tree$Get(slider.new, filterFun = isNotLeaf)
       tabSliders <- lapply(1:length(sliders), function(i) {
-        taby <- tabPanel(paste0(allNodeNames[i]),sliders[i])
+        taby <- tabPanel(paste0(allNodeNames[i]), value = allNodeNames[i],sliders[i])
         taby
       })
-      do.call(tabsetPanel,tabSliders)
+      do.call(tabsetPanel,c(id="nodePanels",tabSliders))
     })
     #modelTree
     #add the observers
     tree$Get(ui.nodesliders.observers.add.byNode, filterFun = isNotLeaf)
+    #TODO the tabPanel is input$nodePanels, need to add an observer or something
 
     #tree$Do(ui.babytree.generate, filterFun = isNotLeaf)
     #TODO can probably update style in the observer with Do...
     #tree$Do(ui.tabs.observers.add, filterFun = isNotLeaf)
+  }
+
+  ui.expertTab.observer.add <- function() {
+    observeEvent(input$nodePanels, {
+      node <- FindNode(node=hdp$tree,name = input$nodePanels)
+      ui.tree.render(hdp$tree, node)
+      print(paste0("--rendering tree for node: ",input$nodePanels))
+    })
   }
 
   #add observers to the sliders here
@@ -242,29 +253,26 @@ server <- function(input, output, session) {
         output[[paste0("uiOutputValueB_",node$name,"_",i)]] <- renderUI({
           span(100 - input[[paste0("slider_",node$name,"_",i)]])
         })
-
-        ui.tree.render(hdp$tree, node)
       })
     })
   }
 
   #render a nice tree
   ui.tree.render <- function(tree, specialNode) {
-    #print("rendering tree...")
-    #TODO regenerate tree from here!!! this sets the state
-
     SetNodeStyle(tree,  style = "filled,rounded", shape = "box", fillcolor = "GreenYellow",
-                 fontname = "helvetica")
+                 fontname = "helvetica", inherit = TRUE)
 
     if(!missing(specialNode)) {
       SetNodeStyle(specialNode,  inherit = FALSE, fillcolor = "Thistle",
                    fontcolor = "Firebrick")
+
+      print("----Special Node: ")
+      print(specialNode)
     }
 
     output$modelTree=renderGrViz({
       grViz(DiagrammeR::generate_dot(ToDiagrammeRGraph(tree)),engine = "dot")
     })
-
   }
 }
 

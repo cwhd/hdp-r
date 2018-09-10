@@ -31,6 +31,7 @@ getExpertResultsAsTreeFromDb <- function(modelId, expertId, dataUri) {
     evalWeights <- eval(parse(text = evalValues$results$weight))
     evalNorms <- eval(parse(text = evalValues$results$norm))
     sliderValues <- eval(parse(text = evalValues$results$sliderValues))
+    #inconsistency <- eval(parse(text = evalValues$results$inconsistency))
 
     goodDf <- data.frame(froms,tos,pathStrings, evalWeights, evalNorms, sliderValues)
     tree <- FromDataFrameNetwork(goodDf)
@@ -95,14 +96,8 @@ getFullHDMModelFromDb <- function(modelId, dataUri) {
   userEmail <- mod$userEmail
   pin <- mod$pin
 
-  #TODO make this work when there is only 1 expert
   experts <- if(!is.null(mod$experts)) {
     eval(parse(text = mod$experts))
-    #if(length(mod$experts) > 1) {
-    #  eval(parse(text = mod$experts))
-    #} else {
-    #  mod$experts
-    #}
   } else {
     NULL
   }
@@ -185,6 +180,7 @@ saveHDMDataToMongoDb <- function(data, id, dataUri) {
 #' @export
 getExpertEvaluationRollup <- function(experts, modelId, dataUri) {
   expertFlatResults <- lapply(1:length(experts), function(i) {
+    #TODO I can get the level from here, then filter out anything that's not the last level
     evaluations <- loadResults(modelId, experts[i], dataUri)
 
     if(nrow(evaluations) > 0) {
@@ -192,15 +188,25 @@ getExpertEvaluationRollup <- function(experts, modelId, dataUri) {
       evalWeights <- eval(parse(text = evaluations$flatResults$weight))
       evalNorms <- eval(parse(text = evaluations$flatResults$norm))
       sliderValues <- eval(parse(text = evaluations$flatResults$sliderValues))
-      #TODO add means and stuff to the end of this data table...
+      #inconsistency <- eval(parse(text = evaluations$flatResults$inconsistency))
 
       goodDf <- data.frame(nodes, evalWeights)
-      colnames(goodDf) <- c("Criteria")
+      colnames(goodDf) <- c("Criteria","Weight")
+
+      #remove NAs
+      goodDf <- goodDf[complete.cases(goodDf),]
+      #aggregate like nodes
+      goodDf <- aggregate(goodDf[,2],list(goodDf$Criteria), mean)
       goodDf
     }
   })
+
+  #TODO inconsistency - the easiest thing may be to put inconsistency in the
+  # dataset above, then pull it out here and append it at the end based on expert name
+
   expertFlatResults <- compact(expertFlatResults) #remove any missing ones
-  print(expertFlatResults)
+
+  #print(expertFlatResults)
   #build the matrix for the final results
   flippedExpertResults <- lapply(1:length(expertFlatResults), function(i) {
     f <- t(expertFlatResults[[i]][-1])
@@ -208,6 +214,9 @@ getExpertEvaluationRollup <- function(experts, modelId, dataUri) {
     rownames(f) <- experts[i]
     f
   })
+
+  print("--------flippedExpertResults")
+  saveRDS(flippedExpertResults, "flippedExpertResults.rds")
 
   flippedExpertResults
 }

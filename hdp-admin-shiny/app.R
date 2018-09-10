@@ -71,6 +71,7 @@ ui <- fluidPage(
                  h4("Expert Evaluations"),
                  actionButton("btnLoadResults","Load Results"),
                  dataTableOutput("tblResults"),
+                 dataTableOutput("tblSummaryResults"),
                  uiOutput("uiIndividualExperts")
         ),
         tabPanel("My Models",
@@ -299,6 +300,16 @@ server <- function(input, output, session) {
     print("loading results...")
 
     flippedExpertResults <- getExpertEvaluationRollup(hdp$experts, hdp$currentModelId, dataUri)
+    #build out summary stats for page
+    matricForCalc <- as.matrix(do.call(rbind,flippedExpertResults))
+    summaryStats <- apply(matricForCalc,2,function(x) c(Min=min(x),
+                                         "1st Qu" =quantile(x, 0.25,names=FALSE),
+                                         Median = quantile(x, 0.5, names=FALSE),
+                                         Mean= mean(x),
+                                         Sd=sd(x),
+                                         "3rd Qu" = quantile(x,0.75,names=FALSE),
+                                         IQR=IQR(x),
+                                         Max = max(x)))
     resultsTable <- do.call(rbind,flippedExpertResults)
 
     #build out the tabs for the experts
@@ -339,14 +350,25 @@ server <- function(input, output, session) {
     # TODO still need other vals like inconsistency or whaever
 
     output$tblResults <- renderDataTable(
-      datatable(resultsTable,  options = list(
-        scrollX = FALSE,
+      datatable(resultsTable,  width = 500, options = list(
+        scrollX = TRUE,
+        scrollY = FALSE,
+        searching = FALSE,
+        paging = FALSE,
+        ordering = FALSE,
+        autoWidth = FALSE
+      )
+    ))
+    output$tblSummaryResults <- renderDataTable(
+      datatable(summaryStats, options = list(
+        scrollX = TRUE,
         scrollY = FALSE,
         searching = FALSE,
         paging = FALSE,
         ordering = FALSE
       )
-    ))
+      )
+    )
   })
 
   ##################################################

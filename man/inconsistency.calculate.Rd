@@ -2,10 +2,13 @@
 % Please edit documentation in R/hdm.calculator.r
 \name{inconsistency.calculate}
 \alias{inconsistency.calculate}
-\title{calculate inconsistency}
+\title{Calculate inconsistency}
 \usage{
 inconsistency.calculate(B)
 }
+\arguments{
+\item{B}{the matrix after it's gone through the first 2 steps of the calculation}
+}
 \description{
-calculate inconsistency
+Helps determine how reliable this expert is
 }

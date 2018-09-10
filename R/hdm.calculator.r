@@ -40,17 +40,7 @@ calculateHDMWeights <- function(tree, comboFrames) {
 #' @param currentNode the node to operate on
 #' @param comboFrames the associated frames to use in the calculation
 normalizeValueForNode <- function(currentNode, populatedMatrix) {
-  #get parent
-  #parent <- currentNode$parent
-  ##build the comparison frames into a matrix
-  #matrixColumns <- lapply(1:length(parent$children), function(i){
-  #  parent$children[[i]]$name
-  #})
-  #populatedMatrix <- matrix.buildFromComboFrames(matrixColumns,comboFrames)
-  #now that we have the matrix of comparisons, run the calculations
-  #calculations <- matrix.calculate(populatedMatrix)
   calculatedMatrix <- matrix.calculate(populatedMatrix)
-  #return calculated values for this node
   return(calculatedMatrix[[currentNode$name,2]])
 }
 
@@ -79,15 +69,12 @@ matrix.buildFromComboFrames <- function(names,comboFrames) {
               dimnames = list(names,names))
   diag(A) <- 1
   for(df in comboFrames) {
-    #print(paste0("--------colnames:",colnames(df)[1],"-",colnames(df)[2]))
     A[colnames(df)[1],colnames(df)[2]] <- df[[1,1]]
     A[colnames(df)[2],colnames(df)[1]] <- df[[1,2]]
   }
-  #A
   B <- t(A) / A
   diag(B) <- 1
   B
-
 }
 
 #' Calculate inconsistency
@@ -113,18 +100,6 @@ inconsistency.calculate <- function(B){
 #'
 #' @param A the matrix to operate on
 matrix.calculate <- function(B) {
-  #calculate everything else
-  #B <- matrix.calculate.b(A)
-
-  #B <- t(A) / A
-  #diag(B) <- 1
-  #B.norm <- sweep(B,2,colSums(B),`/`)
-  #nMeans <- rowMeans(B.norm)
-  #nSd <- apply(B.norm,1,sd)
-  #nVar <- apply(B.norm,1,var)
-  #inconsistency <- sqrt(sum(nVar) * .25)
-
-  #B.norm
   #divide col1 by col2, col2 by col3, etc to create Matrix C
   C <- matrix(ncol = ncol(B)-1, nrow = nrow(B))
   for(c in 1:ncol(C)) {
