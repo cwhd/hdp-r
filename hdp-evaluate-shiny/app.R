@@ -119,6 +119,10 @@ server <- function(input, output, session) {
     print("-------comboFrameList:")
     print(comboFrameList)
 
+    #TODO delete this...
+    saveRDS(comboFrameList, "calculateHDMWeights-comboFrames.rds")
+    saveRDS(hdp$tree, "calculateHDMWeights-tree.rds")
+
     hdp$tree <- calculateHDMWeights(hdp$tree, comboFrameList)
 
     #get the raw slider values and save them so we can pre-populate the form

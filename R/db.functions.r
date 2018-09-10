@@ -67,6 +67,12 @@ getModelAsTreeWithAlternativesFromDb <- function(modelId, dataUri) {
   if(!is.null(alternatives)) {
     print("----adding new level of nodes to the tree...")
     bottomNodes <- getNodesAtLevel(tree, tree$height)
+
+    #TODO delete this...
+    saveRDS(tree$height, "getNodesAtLevel-height.rds")
+    saveRDS(tree, "getNodesAtLevel-tree.rds")
+
+
     lapply(1:nrow(bottomNodes),function(i) {
       lapply(1:length(alternatives), function(j) {
         FindNode(node=tree,name = bottomNodes[[i,"name"]])$AddChildNode(child=Node$new(trim(alternatives[[j]])))
@@ -168,6 +174,44 @@ saveHDMDataToMongoDb <- function(data, id, dataUri) {
   })
 }
 
+#' Get a list of data frames with experts and their inconsistency
+#'
+#' given a list of experts, a modelId, and a URI to get data from
+#' get
+#'
+#' @rdname getInconsistencyList
+#'
+#' @param experts list of
+#' @param modelId
+#' @param dataUri
+#'
+#' @export
+getInconsistencyList <- function(experts, modelId, dataUri) {
+  #for each expert, get their evaluation
+  inconsistencyDfList <- lapply(1:length(experts), function(j) {
+    #load up the data
+    evaluations <- loadResults(modelId, experts[j], dataUri)
+    #for each expert get the results
+    if(nrow(evaluations) > 0) {
+      #use level to get the last level
+      level <- eval(parse(text = evaluations$flatResults$level))
+      inconsistency <- eval(parse(text = evaluations$flatResults$inconsistency))
+
+      goodDf <- data.frame(experts[j], level, inconsistency)
+      colnames(goodDf) <- c("Expert","Level","Inconsistency")
+      #only get the last level in the tree
+      goodDf <- goodDf[goodDf$Level == max(goodDf$Level),]
+      goodDf <- unique(goodDf)
+      goodDf
+    }
+  })
+
+  #print("--inconsistencyDfList")
+  #print(inconsistencyDfList)
+  inconsistencyDfList <- compact(inconsistencyDfList)
+  inconsistencyDfList
+}
+
 #' Get all the expert results and roll them up for display
 #'
 #' Get all of the experts, calculate the summary stats across them,
@@ -179,8 +223,8 @@ saveHDMDataToMongoDb <- function(data, id, dataUri) {
 #' @param modelId modelId that you're working with
 #' @export
 getExpertEvaluationRollup <- function(experts, modelId, dataUri) {
+
   expertFlatResults <- lapply(1:length(experts), function(i) {
-    #TODO I can get the level from here, then filter out anything that's not the last level
     evaluations <- loadResults(modelId, experts[i], dataUri)
 
     if(nrow(evaluations) > 0) {
@@ -188,10 +232,14 @@ getExpertEvaluationRollup <- function(experts, modelId, dataUri) {
       evalWeights <- eval(parse(text = evaluations$flatResults$weight))
       evalNorms <- eval(parse(text = evaluations$flatResults$norm))
       sliderValues <- eval(parse(text = evaluations$flatResults$sliderValues))
-      #inconsistency <- eval(parse(text = evaluations$flatResults$inconsistency))
+      level <- eval(parse(text = evaluations$flatResults$level))
+      inconsistency <- eval(parse(text = evaluations$flatResults$inconsistency))
 
-      goodDf <- data.frame(nodes, evalWeights)
-      colnames(goodDf) <- c("Criteria","Weight")
+      goodDf <- data.frame(nodes, evalWeights, level, inconsistency)
+      colnames(goodDf) <- c("Criteria","Weight","Level","Inconsistency")
+
+      #only get the last level in the tree
+      goodDf <- goodDf[goodDf$Level == max(goodDf$Level),]
 
       #remove NAs
       goodDf <- goodDf[complete.cases(goodDf),]
@@ -201,12 +249,12 @@ getExpertEvaluationRollup <- function(experts, modelId, dataUri) {
     }
   })
 
-  #TODO inconsistency - the easiest thing may be to put inconsistency in the
-  # dataset above, then pull it out here and append it at the end based on expert name
+  inconsistencyList <- getInconsistencyList(experts, modelId, dataUri)
+  inconsistencyDf <- rbindlist(inconsistencyList)
+  #TODO add this to the result
 
   expertFlatResults <- compact(expertFlatResults) #remove any missing ones
 
-  #print(expertFlatResults)
   #build the matrix for the final results
   flippedExpertResults <- lapply(1:length(expertFlatResults), function(i) {
     f <- t(expertFlatResults[[i]][-1])
@@ -215,8 +263,16 @@ getExpertEvaluationRollup <- function(experts, modelId, dataUri) {
     f
   })
 
+  #TODO fix this
+  #print("--FR testing")
+  #finalResults <- lapply(1:length(flippedExpertResults), function(j) {
+  #  fr <- flippedExpertResults[j]
+  #  print(inconsistencyDf[rownames(fr),"Inconsistency"])
+  #  fr$inconsistency <- inconsistencyDf[rownames(fr),"Inconsistency"]
+  #  print(fr)
+  #})
+
   print("--------flippedExpertResults")
-  saveRDS(flippedExpertResults, "flippedExpertResults.rds")
 
   flippedExpertResults
 }

@@ -10,6 +10,7 @@ library(DT)         #interface for selecting models from the DB
 library(xtable)
 library(plyr)
 library(hdpr)
+library(data.table)
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -303,12 +304,9 @@ server <- function(input, output, session) {
     #build out summary stats for page
     matricForCalc <- as.matrix(do.call(rbind,flippedExpertResults))
     summaryStats <- apply(matricForCalc,2,function(x) c(Min=min(x),
-                                         "1st Qu" =quantile(x, 0.25,names=FALSE),
                                          Median = quantile(x, 0.5, names=FALSE),
                                          Mean= mean(x),
                                          Sd=sd(x),
-                                         "3rd Qu" = quantile(x,0.75,names=FALSE),
-                                         IQR=IQR(x),
                                          Max = max(x)))
     resultsTable <- do.call(rbind,flippedExpertResults)
 
