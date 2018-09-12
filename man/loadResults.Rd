@@ -10,6 +10,8 @@ loadResults(modelId, expertId, dataUri)
 \item{modelId}{the ID of the model you want to load}
 
 \item{expertId}{OPTIONAL get results from a specific expert}
+
+\item{dataUri}{URI of mongoDB to use}
 }
 \description{
 Internal function to load up raw resuls from the DB

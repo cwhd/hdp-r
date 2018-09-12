@@ -9,7 +9,7 @@ normalizeValueForNode(currentNode, populatedMatrix)
 \arguments{
 \item{currentNode}{the node to operate on}
 
-\item{comboFrames}{the associated frames to use in the calculation}
+\item{populatedMatrix}{the populated matrix of comboFrames}
 }
 \description{
 Designed to be used recursively in the tree, this function will return

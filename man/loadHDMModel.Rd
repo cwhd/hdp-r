@@ -8,6 +8,8 @@ loadHDMModel(modelId, dataUri)
 }
 \arguments{
 \item{modelId}{the modelId that you're looking for}
+
+\item{dataUri}{URI of mongoDB to use}
 }
 \description{
 Internal function that makes the MongoDB Query

@@ -1,9 +1,5 @@
 ##########################################################
 # -> Helper functions to get or save data <-
-
-# TODO I need to update these so the HDM module just worries about
-# passing JSON back and forth. This should abstract away the DB
-# so I can get this thing up into CRAN
 ##########################################################
 
 #' Get an expert's evaluation in tree form
@@ -13,11 +9,9 @@
 #'
 #' @rdname getExpertResultsAsTreeFromDb
 #'
-#' @example
-#'getExpertResultsAsTreeFromDb("5b85894efccdf91528004090","davis36@pdx.edu","http://hdp/hdp")
-#'
 #' @param modelId the modelId for the mode you're looking for
 #' @param expertId the expertId for the expert you're looking for
+#' @param dataUri URI of mongoDB to use
 #' @export
 getExpertResultsAsTreeFromDb <- function(modelId, expertId, dataUri) {
   evalValues <- loadResults(modelId, expertId, dataUri)
@@ -51,10 +45,8 @@ getExpertResultsAsTreeFromDb <- function(modelId, expertId, dataUri) {
 #'
 #' @rdname getModelAsTreeWithAlternativesFromDb
 #'
-#' @example
-#' getModelAsTreeWithAlternativesFromDb("5b85894efccdf91528004090")
-#'
 #' @param modelId the modelId you're looking for
+#' @param dataUri URI of mongoDB to use
 #' @export
 getModelAsTreeWithAlternativesFromDb <- function(modelId, dataUri) {
   alternatives <- NULL
@@ -69,8 +61,8 @@ getModelAsTreeWithAlternativesFromDb <- function(modelId, dataUri) {
     bottomNodes <- getNodesAtLevel(tree, tree$height)
 
     #TODO delete this...
-    saveRDS(tree$height, "getNodesAtLevel-height.rds")
-    saveRDS(tree, "getNodesAtLevel-tree.rds")
+    #saveRDS(tree$height, "getNodesAtLevel-height.rds")
+    #saveRDS(tree, "getNodesAtLevel-tree.rds")
 
 
     lapply(1:nrow(bottomNodes),function(i) {
@@ -91,6 +83,7 @@ getModelAsTreeWithAlternativesFromDb <- function(modelId, dataUri) {
 #' @rdname getFullHDMModelFromDb
 #'
 #' @param modelId the modelId that you want to get
+#' @param dataUri URI of mongoDB to use
 #' @export
 getFullHDMModelFromDb <- function(modelId, dataUri) {
 
@@ -132,6 +125,7 @@ getFullHDMModelFromDb <- function(modelId, dataUri) {
 #' @param data the results from the evaluation
 #' @param expertId the ID of the expert to associate this evaluation with
 #' @param modelId the ID of the model being evaluated
+#' @param dataUri URI of mongoDB to use
 #' @export
 saveHdmEvaluationToDb <- function(data, expertId, modelId, dataUri) {
   dbInsert <- tryCatch({
@@ -157,6 +151,7 @@ saveHdmEvaluationToDb <- function(data, expertId, modelId, dataUri) {
 #'
 #' @param data the full set of data to save in JSON format
 #' @param id the ID of the model to update. If no ID is passed we will insert a record
+#' @param dataUri URI of mongoDB to use
 #' @export
 saveHDMDataToMongoDb <- function(data, id, dataUri) {
   dbInsert <- tryCatch({
@@ -181,9 +176,9 @@ saveHDMDataToMongoDb <- function(data, id, dataUri) {
 #'
 #' @rdname getInconsistencyList
 #'
-#' @param experts list of
-#' @param modelId
-#' @param dataUri
+#' @param experts list of experts
+#' @param modelId the model you're looking for
+#' @param dataUri URI of mongoDB to use
 #'
 #' @export
 getInconsistencyList <- function(experts, modelId, dataUri) {
@@ -221,6 +216,7 @@ getInconsistencyList <- function(experts, modelId, dataUri) {
 #'
 #' @param experts collection of experts to get data for
 #' @param modelId modelId that you're working with
+#' @param dataUri URI of mongoDB to use
 #' @export
 getExpertEvaluationRollup <- function(experts, modelId, dataUri) {
 
@@ -283,6 +279,7 @@ getExpertEvaluationRollup <- function(experts, modelId, dataUri) {
 #'
 #' @param expertId the expert you're looking for
 #' @param modelId the model you're looking for
+#' @param dataUri URI of mongoDB to use
 #' @export
 getExpertEvaluationComboFrames <- function(expertId, modelId, dataUri) {
   evaluations <- loadResults(modelId, expertId, dataUri)
@@ -295,6 +292,7 @@ getExpertEvaluationComboFrames <- function(expertId, modelId, dataUri) {
 #' Internal function that makes the MongoDB Query
 #'
 #' @param modelId the modelId that you're looking for
+#' @param dataUri URI of mongoDB to use
 loadHDMModel <- function(modelId, dataUri) {
   # Connect to the database
   model <- tryCatch({
@@ -311,12 +309,13 @@ loadHDMModel <- function(modelId, dataUri) {
   model
 }
 
-#'Load expert evaluations from a MongoDB
+#' Load expert evaluations from a MongoDB
 #'
 #' Internal function to load up raw resuls from the DB
 #'
-#'@param modelId the ID of the model you want to load
-#'@param expertId OPTIONAL get results from a specific expert
+#' @param modelId the ID of the model you want to load
+#' @param expertId OPTIONAL get results from a specific expert
+#' @param dataUri URI of mongoDB to use
 loadResults <- function(modelId, expertId, dataUri) {
   evaluations <- tryCatch({
     db <- getDbConnection("evaluations", dataUri)
@@ -351,6 +350,7 @@ loadResults <- function(modelId, expertId, dataUri) {
 #'
 #' @param userEmail the email of the user who build the models
 #' @param pin acts like a password, only is not really secure
+#' @param dataUri URI of mongoDB to use
 #' @export
 loadMyModelsFromDb <- function(userEmail, pin, dataUri) {
 
@@ -377,6 +377,8 @@ loadMyModelsFromDb <- function(userEmail, pin, dataUri) {
 #' total trust.
 #'
 #' Load existing models by ID
+#'
+#' @param dataUri URI of mongoDB to use
 loadAllModels <- function(dataUri) {
   allModels <- tryCatch({
     db <- getDbConnection(dataUri = dataUri)
@@ -414,13 +416,14 @@ getDbConnection <- function(collection, dataUri) {
               url = dataUri)
 }
 
-#'Return a data.frame that can be converted to a tree
-#'with your model based on data retrieved from somewhere else.
+#' Return a data.frame that can be converted to a tree
+#' with your model based on data retrieved from somewhere else.
 #'
-#'@param model definition from database
-#'@return A \code{\link{data.tree}} containing the model
+#' @return A \code{\link{data.tree}} containing the model
 #'
-#'@rdname rebuildDataFrameForHDMTree
+#' @rdname rebuildDataFrameForHDMTree
+#'
+#' @param mod the model to rebuild
 rebuildDataFrameForHDMTree <- function(mod) {
   froms <- eval(parse(text = mod$model$from))
   tos <- eval(parse(text = mod$model$to))

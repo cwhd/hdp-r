@@ -1,0 +1,98 @@
+---
+title: "Using HDP-R"
+author: "Christopher Davis (cwdh)"
+date: "08/07/2018"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+## Intro
+
+HDM is the little cousin of the more widely know AHP. Both are used for using expert evaluations to weight potential alternatives with the final goal of making a complex decesion. Using this package is very easy, you just need a list of data frames that correspond to your expert's rating of criteria and the critiera that represents your decision modeled as a tree. The tough part of HDM is getting your experts to rate your model; this package includes 2 Shiny apps described below to make that process much easier.
+
+Because HDM is based on a tree this package depends on the data.tree package. To send in data to be evaluated you'll need to create a model using data.tree.
+
+## Usage
+
+### Models as Trees
+
+Your decision model will be structured as a tree. For example if you're trying to decide what to eat for breakfast your tree might look like this:
+
+```
+1 What to eat for breakfast
+2  ¦--Taste                
+3  ¦   ¦--Salty            
+4  ¦   °--Sweet            
+5  °--Speed                
+6      ¦--Fast             
+7      °--Slow 
+```
+The decision you're trying to make is the first node, "What to eat for breakfast". After that you have sub-critera, "Taste" and "Speed", then each sub-criteria can have it's own sub-criteria. There is no limit to the number of levels in the tree however note that the longer your tree the harder it will be for your experts to evaluate it, thus you will likely have a much harder time collecting data. 
+
+Note that the last level in the tree is the set of Alternatives that you're choosing between. Alternatives are not mandantory, so you could technically have a tree that just weights criteria against each other.
+
+### ComboFrames
+
+Once your model is defined and you ask your experts to rate your model you're going to get a bunch of pairwise comparisons, these are ComboFrames, or the distinct combinations of nodes to be compared against each other as data frames. ComboFrames is simply a list of these data frames and must correspond to the model for the calculations to work.
+
+### Using HDPR
+
+If you already have data and you just want to use the package just do this:
+
+```
+calculatedTree <- calculateHDMWeights(tree, comboFrames)
+
+```
+
+However you probably don't really want to define your model by hand or get all those values into data frames. To make your life easier there are 2 Shiny apps that will help you define your model and collect results from experts.
+
+## Shiny Apps
+
+There are 2 Shiny apps in here, hdp-admin and hdp-eval. You can run them in R Studio but both have Docker files so you can easily build and deploy them to whatever environment you want. To ensure consistency across the models and the evaluations they share a databased which is also defined in Docker. The architecture looks like this:
+
+![Architecture](architecture.png)
+
+
+### hdp-admin
+
+The hdp admin app will allow you as a model administrator to 
+
+- Define models
+- Manage your experts
+- Review calculated results
+- Save and load multiple models
+
+#### Creating Models
+
+The model designer allows you to add multiple levels of critiera to your model, name your model, and define alternatives. Each level of critiera should be input as a comma seperated list as shown in the Model Designer below:
+
+![Model Designer](ModelDesigner.png)
+
+Note there is a new tab for each level in the tree, so if you want to add more levels simply go to that tab and add more criteria.
+
+#### Loading Models
+
+hdp-admin saves data to a MongoDB. Each model is saved with an email for the model creator and a pin. To load models that you've saved previously you need to enter your email and your pin. Note that this isn't intended to be extremely secure, it's just designed to keep people using the same tenant from messing with each other's models. There is not recover functionality so if you can't get to your database then remember your pin!
+
+#### Managing Experts
+
+Experts are a critical piece of HDM, they are the ones giving you data to analyze! Experts will evaluate your model via the hdp-eval app described below through a URL that is unique for each expert. The "Experts" tab will allow you to add or modify experts by putting their emails into the text boxes.
+
+#### Viewing Results
+
+Once your model is evaluated you can view your results in the results tab. 
+
+### hdp-eval
+
+The evaluation app will allow experts to evaluate your model by rating each node in the tree against each other.
+

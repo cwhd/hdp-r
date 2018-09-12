@@ -8,6 +8,8 @@ getModelAsTreeWithAlternativesFromDb(modelId, dataUri)
 }
 \arguments{
 \item{modelId}{the modelId you're looking for}
+
+\item{dataUri}{URI of mongoDB to use}
 }
 \description{
 Get a model in tree form. If there are alternatives add them to the bottom

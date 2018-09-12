@@ -1,6 +1,6 @@
 Package: hdpr
 Type: Package
-Title: Hierarchical Decision Making (HDM) Implemented in R
+Title: Hierarchical Decision Making (HDM) Process Implemented in R
 Version: 0.1.0
 Date: 2018-08-07
 Author: Christopher Davis (cwhd)
@@ -19,7 +19,7 @@ Suggests:
     knitr,
     rmarkdown,
     DT
-VignetteBuilder: knitr
+VignetteBuilder: knitr  
 Description: Model and analyze decision making problems using Hierarchical Decision Making (HDM)
 License: MIT
 URL: https://github.com/cwhd/hdm-r

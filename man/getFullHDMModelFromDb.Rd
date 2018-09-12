@@ -8,6 +8,8 @@ getFullHDMModelFromDb(modelId, dataUri)
 }
 \arguments{
 \item{modelId}{the modelId that you want to get}
+
+\item{dataUri}{URI of mongoDB to use}
 }
 \description{
 Based on a modelId get an ad-hoc class that has everything we

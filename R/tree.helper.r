@@ -56,8 +56,6 @@ getUniqueChildCombinations <- function(node, alternatives) { #node.combos.unique
 #' This somehow isn't default functionality from data.tree and is useful for UI
 #' development.
 #'
-#' @example nodeNamesHack <- hdp$tree$Get(getNodeName)
-#'
 #' @param node the node to get name of; meant to use recursively through Get method on tree
 #' @export
 getNodeName <- function(node) {

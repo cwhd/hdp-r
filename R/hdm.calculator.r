@@ -7,14 +7,13 @@
 #' This function will take a defined model and corresponding set of
 #' comboFrames and add normalized and weighted values to the tree
 #'
-#' @example
-#' hdp$tree <- calculateHDMWeights(hdp$tree, comboFrameList)
-#'
 #' @param tree the tree representing the model to calculate
 #' @param comboFrames a list of dataframes with comparative values corresponding
 #' to the tree
 #' @export
 calculateHDMWeights <- function(tree, comboFrames) {
+
+  #TODO set top level node values to 1
 
   tree$Do(function(node) {
     parent <- node$parent
@@ -38,10 +37,11 @@ calculateHDMWeights <- function(tree, comboFrames) {
 #' the normalized value for a node.
 #'
 #' @param currentNode the node to operate on
-#' @param comboFrames the associated frames to use in the calculation
+#' @param populatedMatrix the populated matrix of comboFrames
 normalizeValueForNode <- function(currentNode, populatedMatrix) {
   calculatedMatrix <- matrix.calculate(populatedMatrix)
-  return(calculatedMatrix[[currentNode$name,2]])
+  #return(calculatedMatrix[[currentNode$name,2]])
+  return(round(calculatedMatrix[[currentNode$name,2]], 4)) #round to 4 digits
 }
 
 #' Calculate the weighted value for each node
@@ -52,7 +52,7 @@ normalizeValueForNode <- function(currentNode, populatedMatrix) {
 finalizeWeightsForNode <- function(node) {
   parent.norm <- node$parent$norm
   weight <- node$norm * parent.norm
-  return(weight)
+  return(round(weight, 4)) #round to 4 digits
 }
 
 #' Given a set of names and dataframes with evaluation data,
@@ -89,7 +89,7 @@ inconsistency.calculate <- function(B){
   nVar <- apply(B.norm,1,var)
   inconsistency <- sqrt(sum(nVar) * .25)
 
-  inconsistency
+  return(round(inconsistency, 4)) #round to 4 digits
 }
 
 #' Given a populated matrix, divide the comparisons against
@@ -98,7 +98,7 @@ inconsistency.calculate <- function(B){
 #' This is only used internally as the final part of the calculation. The first
 #' 2 steps are used to them get the normalized value for the nodes
 #'
-#' @param A the matrix to operate on
+#' @param B the matrix to operate on
 matrix.calculate <- function(B) {
   #divide col1 by col2, col2 by col3, etc to create Matrix C
   C <- matrix(ncol = ncol(B)-1, nrow = nrow(B))

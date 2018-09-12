@@ -12,6 +12,8 @@ saveHdmEvaluationToDb(data, expertId, modelId, dataUri)
 \item{expertId}{the ID of the expert to associate this evaluation with}
 
 \item{modelId}{the ID of the model being evaluated}
+
+\item{dataUri}{URI of mongoDB to use}
 }
 \description{
 Once an expert evaluates all of their options this function will save them

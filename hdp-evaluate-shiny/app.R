@@ -120,8 +120,8 @@ server <- function(input, output, session) {
     print(comboFrameList)
 
     #TODO delete this...
-    saveRDS(comboFrameList, "calculateHDMWeights-comboFrames.rds")
-    saveRDS(hdp$tree, "calculateHDMWeights-tree.rds")
+    #saveRDS(comboFrameList, "calculateHDMWeights-comboFrames.rds")
+    #saveRDS(hdp$tree, "calculateHDMWeights-tree.rds")
 
     hdp$tree <- calculateHDMWeights(hdp$tree, comboFrameList)
 

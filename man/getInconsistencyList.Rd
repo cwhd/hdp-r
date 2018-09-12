@@ -7,9 +7,11 @@
 getInconsistencyList(experts, modelId, dataUri)
 }
 \arguments{
-\item{experts}{list of}
+\item{experts}{list of experts}
 
-\item{dataUri}{}
+\item{modelId}{the model you're looking for}
+
+\item{dataUri}{URI of mongoDB to use}
 }
 \description{
 given a list of experts, a modelId, and a URI to get data from

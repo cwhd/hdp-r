@@ -10,6 +10,8 @@ getExpertEvaluationRollup(experts, modelId, dataUri)
 \item{experts}{collection of experts to get data for}
 
 \item{modelId}{modelId that you're working with}
+
+\item{dataUri}{URI of mongoDB to use}
 }
 \description{
 Get all of the experts, calculate the summary stats across them,

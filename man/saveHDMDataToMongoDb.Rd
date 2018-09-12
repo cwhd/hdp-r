@@ -10,6 +10,8 @@ saveHDMDataToMongoDb(data, id, dataUri)
 \item{data}{the full set of data to save in JSON format}
 
 \item{id}{the ID of the model to update. If no ID is passed we will insert a record}
+
+\item{dataUri}{URI of mongoDB to use}
 }
 \description{
 Send in JSON data, this will save it to MongoDB. I love MongoDB because it's

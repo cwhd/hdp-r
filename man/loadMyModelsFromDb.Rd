@@ -10,6 +10,8 @@ loadMyModelsFromDb(userEmail, pin, dataUri)
 \item{userEmail}{the email of the user who build the models}
 
 \item{pin}{acts like a password, only is not really secure}
+
+\item{dataUri}{URI of mongoDB to use}
 }
 \description{
 Use this to get model identifiers  for models created by a particular user.

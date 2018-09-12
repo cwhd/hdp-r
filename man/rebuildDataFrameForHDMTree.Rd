@@ -8,7 +8,7 @@ with your model based on data retrieved from somewhere else.}
 rebuildDataFrameForHDMTree(mod)
 }
 \arguments{
-\item{model}{definition from database}
+\item{mod}{the model to rebuild}
 }
 \value{
 A \code{\link{data.tree}} containing the model

@@ -6,6 +6,9 @@
 \usage{
 loadAllModels(dataUri)
 }
+\arguments{
+\item{dataUri}{URI of mongoDB to use}
+}
 \description{
 Even though I use this, it's best not to expose it because you don't want
 user's messing with each other's models. I think it's ok in an evironment of

@@ -10,6 +10,8 @@ getExpertResultsAsTreeFromDb(modelId, expertId, dataUri)
 \item{modelId}{the modelId for the mode you're looking for}
 
 \item{expertId}{the expertId for the expert you're looking for}
+
+\item{dataUri}{URI of mongoDB to use}
 }
 \description{
 Given an expertId and modelId, get the evaluation for that expert

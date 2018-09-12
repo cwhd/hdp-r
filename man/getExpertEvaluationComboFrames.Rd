@@ -10,6 +10,8 @@ getExpertEvaluationComboFrames(expertId, modelId, dataUri)
 \item{expertId}{the expert you're looking for}
 
 \item{modelId}{the model you're looking for}
+
+\item{dataUri}{URI of mongoDB to use}
 }
 \description{
 Use this when you want to get the bitwise comparisons for an expert.

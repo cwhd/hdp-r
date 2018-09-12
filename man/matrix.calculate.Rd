@@ -8,7 +8,7 @@ each other to get relative weights}
 matrix.calculate(B)
 }
 \arguments{
-\item{A}{the matrix to operate on}
+\item{B}{the matrix to operate on}
 }
 \description{
 This is only used internally as the final part of the calculation. The first
