@@ -13,7 +13,9 @@
 #' @export
 calculateHDMWeights <- function(tree, comboFrames) {
 
-  #TODO set top level node values to 1
+  tree$norm <- 1
+  tree$weight <- 1
+  tree$inconsistency <- 1
 
   tree$Do(function(node) {
     parent <- node$parent
@@ -88,6 +90,9 @@ inconsistency.calculate <- function(B){
   nSd <- apply(B.norm,1,sd)
   nVar <- apply(B.norm,1,var)
   inconsistency <- sqrt(sum(nVar) * .25)
+
+  print("---Inconsistency")
+  print(inconsistency)
 
   return(round(inconsistency, 4)) #round to 4 digits
 }

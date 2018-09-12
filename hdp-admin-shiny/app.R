@@ -20,13 +20,12 @@ ui <- fluidPage(
 
   sidebarLayout(
     sidebarPanel(
+      uiOutput("uiUserMessages"),
+
       wellPanel(
         textInput("txtModelName","Model Name",placeholder = "The name of your model"),
         textInput("txtDecison","Decision", placeholder = "Whatever you're trying to decide"),
-        textInput("txtCriteria","Criteria", placeholder = "i.e.) criteria1,2, etc")
-      ),
-      wellPanel(
-        h5("Factors"),
+        textInput("txtCriteria","Criteria", placeholder = "i.e.) criteria1,2, etc"),
         uiOutput("uiDynaFactors")
       ),
       wellPanel(
@@ -38,13 +37,24 @@ ui <- fluidPage(
     # Show a plot of the generated distribution
     mainPanel(
       tabsetPanel(
+        tabPanel("My Models",
+                 p("Enter your email and make up a pin so anything you
+                   save gets associated to you."),
+                 textInput("txtUserEmail", "Email", placeholder = "ex: you@domain.com"),
+                 textInput("txtUserPin", "Pin", placeholder = "4 digit pin, ex: 1234"),
+                 actionButton("btnLoadModels", "Load my models"),
+                 h4("List of all previous models"),
+                 uiOutput("uiDynaModels"),
+                 verbatimTextOutput("modelSelectInfo"),
+                 dataTableOutput(outputId = "dtMongoOutput")
+        ),
+
         tabPanel("Model Designer",
                  wellPanel(
                    h4("Decision Tree"),
                    actionButton("btnSaveModel", "Save Model"),
                    actionButton("btnRebuildTree", "Rebuild Tree From Form"),
                    actionButton("btnLoadExample", "Load Example")
-                   #uiOutput("uiExpertUrl")
                  ),
                  grVizOutput("xx"),
                  wellPanel(
@@ -74,15 +84,6 @@ ui <- fluidPage(
                  dataTableOutput("tblResults"),
                  dataTableOutput("tblSummaryResults"),
                  uiOutput("uiIndividualExperts")
-        ),
-        tabPanel("My Models",
-                 textInput("txtUserEmail", "Email", placeholder = "ex: you@domain.com"),
-                 textInput("txtUserPin", "Pin", placeholder = "4 digit pin, ex: 1234"),
-                 actionButton("btnLoadModels", "Load my models"),
-                 h4("List of all previous models"),
-                 uiOutput("uiDynaModels"),
-                 verbatimTextOutput("modelSelectInfo"),
-                 dataTableOutput(outputId = "dtMongoOutput")
         ),
         tabPanel("Instructions",
                  h4("Welcome to the HDM Admin tool, here is how to use it."),
@@ -252,7 +253,6 @@ server <- function(input, output, session) {
   observeEvent(input$btnAddNewExpert, {
     newExpert <- input$txtNewExpert
     if(trim(newExpert) != "") {
-      print(paste0("not null!: ",newExpert))
       hdp$experts <- c(hdp$experts,newExpert)
     }
     ui.experts.build(hdp$experts)
@@ -264,7 +264,11 @@ server <- function(input, output, session) {
       ui.experts.refresh.fromForm(hdp$experts)
     }
 
-    #TODO check for current model id, if it doesn't exist notify user
+    output$uiUserMessages <- renderUI({
+      if(is.null(hdp$currentModelId)) {
+        p("Don't forget to re-load your model to get a proper expert URL.")
+      }
+    })
     print("updating experts...")
 
     saveEverything()
@@ -298,75 +302,83 @@ server <- function(input, output, session) {
 
   #load expert results
   observeEvent(input$btnLoadResults, {
-    print("loading results...")
+    tryCatch({
 
-    flippedExpertResults <- getExpertEvaluationRollup(hdp$experts, hdp$currentModelId, dataUri)
-    #build out summary stats for page
-    matricForCalc <- as.matrix(do.call(rbind,flippedExpertResults))
-    summaryStats <- apply(matricForCalc,2,function(x) c(Min=min(x),
-                                         Median = quantile(x, 0.5, names=FALSE),
-                                         Mean= mean(x),
-                                         Sd=sd(x),
-                                         Max = max(x)))
-    resultsTable <- do.call(rbind,flippedExpertResults)
+      print("loading results...")
 
-    #build out the tabs for the experts
-    output$uiIndividualExperts <- renderUI({
-      expertComboFrameTabs <- lapply(1:length(hdp$experts), function(i) {
+      flippedExpertResults <- getExpertEvaluationRollup(hdp$experts, hdp$currentModelId, dataUri)
+      #build out summary stats for page
+      matricForCalc <- as.matrix(do.call(rbind,flippedExpertResults))
+      summaryStats <- apply(matricForCalc,2,function(x) c(Min=min(x),
+                                                          Median = quantile(x, 0.5, names=FALSE),
+                                                          Mean= mean(x),
+                                                          Sd=sd(x),
+                                                          Max = max(x)))
+      resultsTable <- do.call(rbind,flippedExpertResults)
 
-        #get results for expert
-        evalComboFrames <- getExpertEvaluationComboFrames(hdp$experts[i],hdp$currentModelId, dataUri)
-        #TODO this should be the expert version of the tree...
-        allNodeNames <- hdp$tree$Get(getNodeName)
+      #build out the tabs for the experts
+      output$uiIndividualExperts <- renderUI({
+        expertComboFrameTabs <- lapply(1:length(hdp$experts), function(i) {
 
-        comboTableList <- lapply(1:length(allNodeNames), function(j) {
-          comboFrameList <- evalComboFrames[[allNodeNames[j]]]
-          renderDataTable({
-            datatable(
-              as.data.frame(comboFrameList),
-              caption = allNodeNames[j],
-              width = 100,
-              rownames = FALSE,
-              options = list(
-                scrollX = FALSE,
-                scrollY = FALSE,
-                searching = FALSE,
-                paging = FALSE,
-                ordering = FALSE,
-                info = FALSE,
-                autoWidth = FALSE
+          #get results for expert
+          evalComboFrames <- getExpertEvaluationComboFrames(hdp$experts[i],hdp$currentModelId, dataUri)
+          #TODO this should be the expert version of the tree...
+          allNodeNames <- hdp$tree$Get(getNodeName)
+
+          comboTableList <- lapply(1:length(allNodeNames), function(j) {
+            comboFrameList <- evalComboFrames[[allNodeNames[j]]]
+            renderDataTable({
+              datatable(
+                as.data.frame(comboFrameList),
+                caption = allNodeNames[j],
+                width = 100,
+                rownames = FALSE,
+                options = list(
+                  scrollX = FALSE,
+                  scrollY = FALSE,
+                  searching = FALSE,
+                  paging = FALSE,
+                  ordering = FALSE,
+                  info = FALSE,
+                  autoWidth = FALSE
+                )
               )
-            )
+            })
           })
+          taby <- tabPanel(hdp$experts[i], comboTableList)
+          taby
         })
-        taby <- tabPanel(hdp$experts[i], comboTableList)
-        taby
+        do.call(tabsetPanel,expertComboFrameTabs)
       })
-      do.call(tabsetPanel,expertComboFrameTabs)
+
+      # TODO still need other vals like inconsistency or whaever
+
+      output$tblResults <- renderDataTable(
+        datatable(resultsTable,  width = 500, options = list(
+          scrollX = TRUE,
+          scrollY = FALSE,
+          searching = FALSE,
+          paging = FALSE,
+          ordering = FALSE,
+          autoWidth = FALSE
+        )
+        ))
+      output$tblSummaryResults <- renderDataTable(
+        datatable(summaryStats, options = list(
+          scrollX = TRUE,
+          scrollY = FALSE,
+          searching = FALSE,
+          paging = FALSE,
+          ordering = FALSE
+        )
+        )
+      )
+    }, error = function(e) {
+      print(paste0("ERROR loading results",e))
+      output$uiIndividualExperts <- renderUI({
+        p("No results found")
+      })
     })
-
-    # TODO still need other vals like inconsistency or whaever
-
-    output$tblResults <- renderDataTable(
-      datatable(resultsTable,  width = 500, options = list(
-        scrollX = TRUE,
-        scrollY = FALSE,
-        searching = FALSE,
-        paging = FALSE,
-        ordering = FALSE,
-        autoWidth = FALSE
-      )
-    ))
-    output$tblSummaryResults <- renderDataTable(
-      datatable(summaryStats, options = list(
-        scrollX = TRUE,
-        scrollY = FALSE,
-        searching = FALSE,
-        paging = FALSE,
-        ordering = FALSE
-      )
-      )
-    )
   })
 
   ##################################################

@@ -86,7 +86,10 @@ hdp-admin saves data to a MongoDB. Each model is saved with an email for the mod
 
 #### Managing Experts
 
-Experts are a critical piece of HDM, they are the ones giving you data to analyze! Experts will evaluate your model via the hdp-eval app described below through a URL that is unique for each expert. The "Experts" tab will allow you to add or modify experts by putting their emails into the text boxes.
+Experts are a critical piece of HDM, they are the ones giving you data to analyze! Experts will evaluate your model via the hdp-eval app described below through a URL that is unique for each expert. The "Experts" tab in the admin tool will allow you to add or modify experts by putting their emails into the text boxes as shown in the image below. Note that the URL contains the modelID and the expert's email in a query string.
+
+![Expert Form](ExpertForm.PNG)
+
 
 #### Viewing Results
 
