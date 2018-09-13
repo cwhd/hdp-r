@@ -235,7 +235,7 @@ getExpertEvaluationRollup <- function(experts, modelId, dataUri) {
       colnames(goodDf) <- c("Criteria","Weight","Level","Inconsistency")
 
       #only get the last level in the tree
-      goodDf <- goodDf[goodDf$Level == max(goodDf$Level),]
+      #goodDf <- goodDf[goodDf$Level == max(goodDf$Level),]
 
       #remove NAs
       goodDf <- goodDf[complete.cases(goodDf),]
@@ -247,7 +247,6 @@ getExpertEvaluationRollup <- function(experts, modelId, dataUri) {
 
   inconsistencyList <- getInconsistencyList(experts, modelId, dataUri)
   inconsistencyDf <- rbindlist(inconsistencyList)
-  #TODO add this to the result
 
   expertFlatResults <- compact(expertFlatResults) #remove any missing ones
 
@@ -259,17 +258,14 @@ getExpertEvaluationRollup <- function(experts, modelId, dataUri) {
     f
   })
 
-  #TODO fix this
-  #print("--FR testing")
-  #finalResults <- lapply(1:length(flippedExpertResults), function(j) {
-  #  fr <- flippedExpertResults[j]
-  #  print(inconsistencyDf[rownames(fr),"Inconsistency"])
-  #  fr$inconsistency <- inconsistencyDf[rownames(fr),"Inconsistency"]
-  #  print(fr)
-  #})
-
   print("--------flippedExpertResults")
 
+  flippedExpertResults
+
+  #turn it into a matrix like this
+  flippedExpertResults <- as.matrix(do.call(rbind,flippedExpertResults))
+  #add inconsistency
+  flippedExpertResults <- cbind(flippedExpertResults,"inconsistency" = inconsistencyDf[,3])
   flippedExpertResults
 }
 
