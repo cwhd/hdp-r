@@ -60,11 +60,6 @@ getModelAsTreeWithAlternativesFromDb <- function(modelId, dataUri) {
     print("----adding new level of nodes to the tree...")
     bottomNodes <- getNodesAtLevel(tree, tree$height)
 
-    #TODO delete this...
-    #saveRDS(tree$height, "getNodesAtLevel-height.rds")
-    #saveRDS(tree, "getNodesAtLevel-tree.rds")
-
-
     lapply(1:nrow(bottomNodes),function(i) {
       lapply(1:length(alternatives), function(j) {
         FindNode(node=tree,name = bottomNodes[[i,"name"]])$AddChildNode(child=Node$new(trim(alternatives[[j]])))

@@ -323,27 +323,31 @@ server <- function(input, output, session) {
           #get results for expert
           evalComboFrames <- getExpertEvaluationComboFrames(hdp$experts[i],hdp$currentModelId, dataUri)
           #TODO this should be the expert version of the tree...
-          allNodeNames <- hdp$tree$Get(getNodeName)
+          allNodeNames <- hdp$tree$Get(getNodeName, filterFun = isNotRoot)
 
           comboTableList <- lapply(1:length(allNodeNames), function(j) {
+
             comboFrameList <- evalComboFrames[[allNodeNames[j]]]
-            renderDataTable({
-              datatable(
-                as.data.frame(comboFrameList),
-                caption = allNodeNames[j],
-                width = 100,
-                rownames = FALSE,
-                options = list(
-                  scrollX = FALSE,
-                  scrollY = FALSE,
-                  searching = FALSE,
-                  paging = FALSE,
-                  ordering = FALSE,
-                  info = FALSE,
-                  autoWidth = FALSE
+            span(
+              renderDataTable({
+                datatable(
+                  as.data.frame(comboFrameList),
+                  caption = allNodeNames[j],
+                  width = 100,
+                  rownames = FALSE,
+                  options = list(
+                    scrollX = FALSE,
+                    scrollY = FALSE,
+                    searching = FALSE,
+                    paging = FALSE,
+                    ordering = FALSE,
+                    info = FALSE,
+                    autoWidth = FALSE
+                  )
                 )
-              )
-            })
+              }),
+              style = "display: inline-block; width: 200px;"
+            )
           })
           taby <- tabPanel(hdp$experts[i], comboTableList)
           taby

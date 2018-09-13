@@ -1,11 +1,11 @@
-version: '3.7'
+version: '3'
 
 services:
   hdp-eval:
     image: hdp-eval
     container_name: hdp-eval
     build: .
-    ports: 
+    ports:
     - 3838:3838
     environment:
     - MONGO_URI=mongodb://hdpdb/hdp
@@ -19,7 +19,7 @@ services:
     image: hdp-admin
     container_name: hdp-admin
     build: .
-    ports: 
+    ports:
     - 3839:3838
     environment:
     - MONGO_URI=mongodb://hdpdb/hdp
@@ -34,7 +34,7 @@ services:
   db:
     image: mongo:3.2
     container_name: hdp-mongo
-    volumes: 
+    volumes:
     - ./db:/data/db
     networks:
       hdpnet:
