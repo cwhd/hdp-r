@@ -97,6 +97,23 @@ inconsistency.calculate <- function(B){
   return(round(inconsistency, 4)) #round to 4 digits
 }
 
+#' Pass in a list of experts and their final results, get back the disagreement
+#'
+#' First get the standard deviation across the values for each expert
+#' Second get the mean across the experts
+#'
+#' @rdname disagreement.calculate
+#'
+#' @param expertsFinalResults a matrix with the experts and the weights at the bottom
+#' of the tree
+disagreement.calculate <- function(expertsFinalResults) {
+  stepOne <- apply(expertsFinalResults,1,sd)
+  stepTwo <- mean(stepOne)
+  print("Step 2")
+  print(round(stepTwo,4))
+  return(round(stepTwo,4)) #round to 4 digits
+}
+
 #' Given a populated matrix, divide the comparisons against
 #' each other to get relative weights
 #'
