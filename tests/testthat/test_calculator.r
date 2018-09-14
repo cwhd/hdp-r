@@ -27,7 +27,7 @@ test_that("Agree to disagree", {
   colnames(testMatrix) <- c("val1","val2","val3")
   rownames(testMatrix) <- c("expert1","expert2","expert3")
 
-  dis <- disagreement.calculate(testMatrix)
+  dis <- calculateExpertDisagreement(testMatrix)
 
   expect_equal(0.0366, dis)
 })

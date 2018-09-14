@@ -2,7 +2,7 @@ Package: hdpr
 Type: Package
 Title: Hierarchical Decision Making (HDM) Process Implemented in R
 Version: 0.1.0
-Date: 2018-08-07
+Date: 2018-09-14
 Author: Christopher Davis (cwhd)
 Maintainer: Christopher Davis <techchrisdavis@outlook.com>
 Imports:
@@ -12,7 +12,8 @@ Imports:
     rjson,
     plyr,
     mongolite,
-    xtable
+    xtable,
+    stats
 Suggests:
     shiny,
     testthat,
@@ -20,8 +21,8 @@ Suggests:
     rmarkdown,
     DT
 VignetteBuilder: knitr  
-Description: Model and analyze decision making problems using Hierarchical Decision Making (HDM)
-License: MIT
+Description: Model and analyze decision making problems using Hierarchical Decision Making (HDM).
+License: MIT + file LICENSE
 URL: https://github.com/cwhd/hdm-r
 BugReports: https://github.com/cwhd/hdm-r/issues
 Encoding: UTF-8

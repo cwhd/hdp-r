@@ -118,8 +118,8 @@ server <- function(input, output, session) {
                      alternatives=NULL,loadedModels=NULL,currentModelName=NULL,
                      currentModelId=NULL, expertList = NULL)
 
-  dataUri <- "mongodb://localhost/hdp" #local db
-  #dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
+  #dataUri <- "mongodb://localhost/hdp" #local db
+  dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
 
   #TODO this needs to come from a config or env variable
   evalUrl <- "http://localhost:3838"

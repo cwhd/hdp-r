@@ -106,7 +106,8 @@ inconsistency.calculate <- function(B){
 #'
 #' @param expertsFinalResults a matrix with the experts and the weights at the bottom
 #' of the tree
-disagreement.calculate <- function(expertsFinalResults) {
+#' @export
+calculateExpertDisagreement <- function(expertsFinalResults) {
   stepOne <- apply(expertsFinalResults,1,sd)
   stepTwo <- mean(stepOne)
   print("Step 2")
