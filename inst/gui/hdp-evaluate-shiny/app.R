@@ -51,8 +51,8 @@ server <- function(input, output, session) {
                      expertId=NULL, modelId=NULL)
 
 
-  dataUri <- "mongodb://localhost/hdp" #local db
-  #dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
+  #dataUri <- "mongodb://localhost/hdp" #local db
+  dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
 
   #Load the form from the query string
   observeEvent(input$btnLoadFromQueryString, {

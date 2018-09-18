@@ -1,8 +1,8 @@
 Package: hdpr
 Type: Package
-Title: Hierarchical Decision Making (HDM) Process Implemented in R
+Title: Hierarchical Decision Making Process
 Version: 0.1.0
-Date: 2018-09-14
+Date: 2018-09-17
 Author: Christopher Davis (cwhd)
 Maintainer: Christopher Davis <techchrisdavis@outlook.com>
 Imports:
@@ -21,7 +21,11 @@ Suggests:
     rmarkdown,
     DT
 VignetteBuilder: knitr  
-Description: Model and analyze decision making problems using Hierarchical Decision Making (HDM).
+Description:  Hierarchical Decision Making (HDM) is a variation of the Analytic Hierarchy Process 
+  (AHP)(Thomas Saatay) where a decision model is built as a tree, then pairwise comparisons 
+  are used to quantify the model. HDP is the process used to conduct surveys and evaluate
+  models with HDM. This package is designed to aid researchers in conducing the Hierarchical
+  Decision Process utilizing HDM.
 License: MIT + file LICENSE
 URL: https://github.com/cwhd/hdm-r
 BugReports: https://github.com/cwhd/hdm-r/issues

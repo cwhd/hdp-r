@@ -121,8 +121,8 @@ server <- function(input, output, session) {
   #dataUri <- "mongodb://localhost/hdp" #local db
   dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
 
-  #TODO this needs to come from a config or env variable
-  evalUrl <- "http://localhost:3838"
+  #TODO this needs to come from a config or env variable, should be wherever your app is deployed
+  evalUrl <- "http://40.112.167.166:3838"
   #This is a bit of a hack, but these defaults make managing state easier
   defaultTree <- Node$new("Hierarchical")
   defaultNode1 <- defaultTree$AddChild("Decision")
