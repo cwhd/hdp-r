@@ -93,17 +93,47 @@ ui <- fluidPage(
                    tags$li("Send your experts an evaluation to weight your options."),
                    tags$li("Use the results for your research.")
                  ),
+                 h4("My Models"),
+                 p("Before you do anything enter your email and a pin that you will remeber
+                   on the My Models screen. Everything you save in the tool will be
+                   associated with that email and that pin. If you don't have anything
+                   in the field when you save it you will probably loose your work!"),
                  h4("Model Designer"),
-                 p("Use it to design your model."),
+                 p("The model designer has 2 parts, the visual model as a tree and
+                   the form on the left to design the model. If you want to see a
+                   quick example just click the 'Load Example' button to see what
+                   the form and tree look like with a small model."),
+                 p("To create a model first you need a name and decision. The first
+                   level of the tree is your criteria. Note that this is a comma
+                   seperated list of criteria, so to add more criteria simply add
+                   a comma and the next criteria and click 'rebuild tree from form'."),
+                 p("Once your first level is set you can add sub critiera by adding
+                   comma seperated elements for each critiera. Every time you add some
+                   new elements just click the 'rebuild tree from form' button again
+                   to see your model as a tree. For each level in the tree you add you'll
+                   see a new tab on the form that you can click on and update."),
+                 p("The bottom of the form has Alternatives which are recommended but
+                   not required. In whatever you're trying to decide the alternatives
+                   are the different choices."),
                  h4("Experts"),
-                 p("Experts evaluate your model, manage them in the experts tab."),
+                 p("The Experts tab is where you can manage your experts. To add a new
+                   expert put in the email of the expert and click 'Add New'. When
+                   you're done make sure you click the 'Update Experts' button too. If you
+                   need to update an experts email just change it and click update experts."),
+                 p("Each expert will get a unique URL to use to evaluate the model you've
+                   created. When you add an expert the link will shown under the expert,
+                   make sure you send that URL to the expert to evaluate the model to ensure
+                   results are collected accurately."),
                  h4("Evaluation Form"),
                  p("Once you have designed a model the evaluation form is generated. This is
-             for you to see what your experts see, it won't actually evaluate anything."),
+             for you to see what your experts see, it won't actually evaluate anything. You can
+                   also click on the links on the expert tab to see what experts will see."),
                  h4("Results"),
                  p("Once your model has been evaluated results will be here."),
                  h4("Saved Models"),
-                 p("To load saved models.")
+                 p("As you're working on a model you should be saving it. To load a model
+                   just got to this tab, enter the email and pin you used to save the model,
+                   and load it up.")
         )
       )
     )
@@ -118,8 +148,8 @@ server <- function(input, output, session) {
                      alternatives=NULL,loadedModels=NULL,currentModelName=NULL,
                      currentModelId=NULL, expertList = NULL)
 
-  #dataUri <- "mongodb://localhost/hdp" #local db
-  dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
+  dataUri <- "mongodb://localhost/hdp" #local db
+  #dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
 
   #TODO this needs to come from a config or env variable, should be wherever your app is deployed
   evalUrl <- "http://40.112.167.166:3838"

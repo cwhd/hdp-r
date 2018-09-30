@@ -54,7 +54,46 @@ calculatedTree <- calculateHDMWeights(tree, comboFrames)
 
 ```
 
-However you probably don't really want to define your model by hand or get all those values into data frames. To make your life easier there are 2 Shiny apps that will help you define your model and collect results from experts.
+Here are some more detailed examples of using HDPR
+
+#### Example 1
+
+First we need to create a tree that represents our model. You can do that like this:
+
+```
+#TODO put code here that creates the model as a tree
+
+```
+
+Typically the next thing you do is get experts to rate your model by doing a series of pairwise comparisons. You can use the shiny app in inst/gui/hdpr-evaluate to do this but for the sake of the example here is what the finished data should look like representing a single expert's evaluation:
+
+```
+#TODO put code here that creates a sample evaluation here
+
+```
+
+Next will be code that will create the outputs for one expert:
+
+```
+#TODO run the code that does evaluation for a single expert
+
+```
+
+If you have muliple experts combine them together first, then caluclate:
+
+```
+#TODO using more than one expert do the calcualtion
+
+```
+
+The output is the final set of weights for each branch in the tree. You can examine it like this:
+
+```
+#TODO code here to show what the final output of the tree looks like
+
+```
+
+Enjoy your results! However you probably don't really want to define your model by hand or get all those values into data frames. To make your life easier there are 2 Shiny apps that will help you define your model and collect results from experts.
 
 ## Shiny Apps
 

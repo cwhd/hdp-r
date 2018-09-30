@@ -16,11 +16,17 @@ ui <- fluidPage(
    tabsetPanel(
       tabPanel("Instructions",
         h3("Instructions"),
-        p("In this method, two elements are compared with each other at a time.
-          The expert allocates a total of 100 points to the two elements in the
-          proportion of their relative importance to the objective. For example:"),
+        p("If you have been invited to this page you are an expert in your field and we
+          greatly appreciate the time you're taking to give your input - Thanks!
+          To get started click the button at the bottom and then click on the
+          Comparisons tab to complete your evaluation."),
+        p("This evaluation is part of the Hierarchical Decision Making (HDM) method.
+          In this method a decision has been broken down into it's elements as a tree
+          and you have been asked to compare each element in the tree against the others in
+          proportion of their relative importance to the objective. Use the sliders
+          on the Comparisons page to rate each pair. For example:"),
         tags$ul(
-          tags$li(" If A is 3 times as important as B, A gets 75 points, B gets 25 points"),
+          tags$li("If A is 3 times as important as B, A gets 75 points, B gets 25 points"),
           tags$li("If the importance of A and B are the same, both get 50 points. This is
              the case regardless of whether both are extremely important, mildly important
              or unimportant."),
@@ -51,8 +57,8 @@ server <- function(input, output, session) {
                      expertId=NULL, modelId=NULL)
 
 
-  #dataUri <- "mongodb://localhost/hdp" #local db
-  dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
+  dataUri <- "mongodb://localhost/hdp" #local db
+  #dataUri <- "mongodb://hdpdb/hdp" #when using docker use this
 
   #Load the form from the query string
   observeEvent(input$btnLoadFromQueryString, {
@@ -139,10 +145,10 @@ server <- function(input, output, session) {
     dfTreeFlatResults <- ToDataFrameTree(hdp$tree,"pathString","level","weight","norm","sliderValues","inconsistency")
     dfTreeFlatResults$pathString <- lapply(dfTreeFlatResults$pathString,getLastElementInPath)
 
-    #print("---maybe this")
     dfTreeFlatResults$levelName <- NULL
     #TODO add inconsistency to the flat results
     print(dfTreeFlatResults)
+
 
     fullJson <- paste0('{ "modelId" : "',hdp$modelId,'",
                         "expertId" : "',hdp$expertId,'",
