@@ -23,7 +23,7 @@ calculateHDMWeights <- function(tree, comboFrames) {
     matrixColumns <- lapply(1:length(parent$children), function(i){
       parent$children[[i]]$name
     })
-    populatedMatrixAB <- matrix.buildFromComboFrames(matrixColumns,comboFrames[[node$name]])
+    populatedMatrixAB <- matrix.buildFromComboFrames(matrixColumns,comboFrames[[parent$.id]])
 
     node$norm <-  normalizeValueForNode(node, populatedMatrixAB)
     node$weight <-  finalizeWeightsForNode(node)
