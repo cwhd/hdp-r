@@ -67,6 +67,8 @@ server <- function(input, output, session) {
                        sep = "=", collapse=", ")
 
     #variables from the query string
+    # requestedModelId <- "5e2153f6a2760000ce00105c" //debug code
+    # currentExpert <- "dz4@pdx.edu"
     requestedModelId <- query[["modelId"]]
     currentExpert <- query[["expertId"]]
 
