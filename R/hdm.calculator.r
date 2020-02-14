@@ -25,7 +25,7 @@ calculateHDMWeights <- function(tree, comboFrames) {
     })
     populatedMatrixAB <- matrix.buildFromComboFrames(matrixColumns,comboFrames[[parent$.id]])
 
-    node$norm <-  normalizeValueForNode(node, populatedMatrixAB)
+    node$norm <-  normalizeValueForNode(node,matrixColumns,comboFrames[[parent$.id]])
     node$weight <-  finalizeWeightsForNode(node)
     node$inconsistency <- inconsistency.calculate(populatedMatrixAB)
   }, filterFun = isNotRoot)
@@ -39,11 +39,23 @@ calculateHDMWeights <- function(tree, comboFrames) {
 #' the normalized value for a node.
 #'
 #' @param currentNode the node to operate on
-#' @param populatedMatrix the populated matrix of comboFrames
-normalizeValueForNode <- function(currentNode, populatedMatrix) {
-  calculatedMatrix <- matrix.calculate(populatedMatrix)
-  #return(calculatedMatrix[[currentNode$name,2]])
-  return(round(calculatedMatrix[[currentNode$name,2]], 4)) #round to 4 digits
+#' @param matrixColumns the matrix contains column names
+#' @param pairwiseFrame the dataset from comboFrames matches matrixColumns
+normalizeValueForNode <- function(currentNode, matrixColumns, pairwiseFrame) {
+  # find all valid permutation of column names
+  dim <- length(matrixColumns)
+  m <- expand.grid(replicate(length(matrixColumns), matrixColumns, simplify = FALSE))
+  names <- as.matrix(m[apply(m, 1, function(x) { length(unique(x)) == dim }),])
+
+  # compute weights of all combination, take the average as the final weight
+  weight <- 0
+  apply(names, 1, function(x) {
+    m1 <- matrix.buildFromComboFrames(x, pairwiseFrame); m2 <- matrix.calculate(m1)
+    weight <<- weight + m2[[currentNode$name,2]]
+  })
+  weight <- weight / nrow(names)
+
+  return(round(weight,4)) #round to 4 digits
 }
 
 #' Calculate the weighted value for each node
