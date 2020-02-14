@@ -34,4 +34,5 @@ COPY shiny-server.sh /usr/bin/shiny-server.sh
 COPY shiny-server.conf  /etc/shiny-server/shiny-server.conf
 COPY . /srv/shiny-server/
 
+RUN chmod +x /usr/bin/shiny-server.sh
 CMD ["/usr/bin/shiny-server.sh"]

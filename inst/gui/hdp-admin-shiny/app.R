@@ -339,12 +339,12 @@ server <- function(input, output, session) {
       flippedExpertResults <- getExpertEvaluationRollup(hdp$experts, hdp$currentModelId, dataUri)
       #build out summary stats for page
       matricForCalc <- flippedExpertResults
-      summaryStats <- apply(matricForCalc,2,function(x) c(Min=min(x),
+      summaryStats <- round(apply(matricForCalc,2,function(x) c(Min=min(x),
                                                           Median = quantile(x, 0.5, names=FALSE),
                                                           Mean= mean(x),
                                                           Sd=sd(x),
-                                                          Max = max(x)))
-      resultsTable <- flippedExpertResults
+                                                          Max = max(x))), 4)
+      resultsTable <- round(flippedExpertResults, 4)
 
       #build out the tabs for the experts
       output$uiIndividualExperts <- renderUI({
